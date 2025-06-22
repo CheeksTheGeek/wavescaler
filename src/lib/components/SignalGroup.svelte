@@ -53,6 +53,13 @@
   // Deterministic color selection based on group name and parent index
   $: groupColorIndex = (groupName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + parentIndex) % BACKGROUND_COLORS.length;
   $: groupBackgroundColor = BACKGROUND_COLORS[groupColorIndex];
+  
+  // Create a more opaque version for the header (increase opacity by 20%)
+  $: groupHeaderColor = (() => {
+    const baseColor = BACKGROUND_COLORS[groupColorIndex];
+    // Extract the rgba values and increase opacity from 0.1 to 0.3
+    return baseColor.replace('0.1)', '0.3)');
+  })();
 
     let isCollapsed = false;
     let isEditingName = false;
@@ -156,7 +163,7 @@
   
   <div class="signal-group" style="--level: {level}">
     <!-- Group Header -->
-    <div class="group-header">
+    <div class="group-header" style="background-color: {groupHeaderColor}; width: {150 + (maxCycles * 40 * hscale)}px;">
       <div class="group-name-container">
               <button 
         class="collapse-button"
@@ -203,7 +210,7 @@
 
     <!-- Group Content -->
     {#if !isCollapsed}
-      <div class="group-content" style="--group-bg-color: {groupBackgroundColor}">
+      <div class="group-content" style="--group-bg-color: {groupBackgroundColor}; width: {150 + (maxCycles * 40 * hscale)}px;">
         {#each groupItems as item, index (index)}
           {@const itemType = getItemType(item)}
 
@@ -236,7 +243,12 @@
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
             />
           {:else if itemType === 'spacer'}
-            <div class="group-spacer"></div>
+            <div class="group-spacer">
+              <div class="spacer-name">spacer</div>
+              <div class="spacer-wave-area" style="width: {maxCycles * 40 * hscale}px;">
+                <div class="spacer-vertical-line"></div>
+              </div>
+            </div>
           {:else if itemType === 'unknown'}
             <div class="group-unknown">
               Unknown item type in group
@@ -259,7 +271,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background-color: #f8fafc;
+      background-color: transparent;
       border-bottom: 1px solid var(--border-color);
       padding-right: 8px;
     }
@@ -365,7 +377,52 @@
 
     .group-spacer {
       height: calc(var(--lane-height) * 0.6);
-      border-bottom: 1px dashed var(--grid-color);
+      display: flex;
+      margin: 2px 0;
+    }
+
+    .spacer-name {
+      width: var(--name-width);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 11px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+      background-color: transparent;
+    }
+
+    .spacer-wave-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      position: relative;
+    }
+
+    .spacer-wave-area::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 2px;
+      background-image: repeating-linear-gradient(
+        to right,
+        #9ca3af 0,
+        #9ca3af 12px,
+        transparent 12px,
+        transparent 20px
+      );
+      opacity: 0.9;
+    }
+
+    .spacer-vertical-line {
+      width: 1px;
+      height: 100%;
+      background: transparent;
     }
 
     .group-unknown {

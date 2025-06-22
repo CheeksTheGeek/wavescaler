@@ -568,7 +568,7 @@
       display: flex;
       align-items: center;
       padding: 0 12px;
-      background-color: #f8fafc;
+      background-color: transparent;
       border-right: 1px solid var(--border-color);
       flex-shrink: 0;
       z-index: 2; /* Above grid lines */

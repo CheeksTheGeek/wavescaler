@@ -354,7 +354,12 @@
               on:rightclick={(e) => handleRightClick(e)}
             />
           {:else if itemType === 'spacer'}
-            <div class="signal-spacer"></div>
+            <div class="signal-spacer">
+              <div class="spacer-name">spacer</div>
+              <div class="spacer-wave-area" style="width: {maxCycles * cycleWidth}px;">
+                <div class="spacer-vertical-line"></div>
+              </div>
+            </div>
           {:else}
             <div class="signal-unknown">
               Unknown item type at index {i}
@@ -447,7 +452,52 @@
   
     .signal-spacer {
       height: calc(var(--lane-height) * 0.6);
-      border-bottom: 1px dashed var(--grid-color);
+      display: flex;
+      margin: 2px 0;
+    }
+
+    .spacer-name {
+      width: var(--name-width);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 11px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+      background-color: transparent;
+    }
+
+    .spacer-wave-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: transparent;
+      position: relative;
+    }
+
+    .spacer-wave-area::after {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 2px;
+      background-image: repeating-linear-gradient(
+        to right,
+        #9ca3af 0,
+        #9ca3af 12px,
+        transparent 12px,
+        transparent 20px
+      );
+      opacity: 0.9;
+    }
+
+    .spacer-vertical-line {
+      width: 1px;
+      height: 100%;
+      background: transparent;
     }
   
     .signal-unknown {

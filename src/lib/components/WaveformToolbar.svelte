@@ -8,6 +8,7 @@
   const dispatch = createEventDispatcher<{
     addsignal: { signal: WaveSignal };
     addgroup: { group: WaveGroup };
+    addspacer: {};
     clear: {};
     export: { format: 'json' | 'svg' | 'png' };
     import: { waveJson: WaveJson };
@@ -74,6 +75,10 @@
       }
     ];
     dispatch('addgroup', { group: newGroup });
+  }
+
+  function addSpacer() {
+    dispatch('addspacer', {});
   }
 
   function clearDiagram() {
@@ -157,6 +162,15 @@
         <path d="M6 7 L10 7 M6 9 L10 9" stroke="currentColor" stroke-width="1.5"/>
       </svg>
       Add Group
+    </button>
+    <button class="toolbar-button primary" on:click={addSpacer}>
+      <svg width="16" height="16" viewBox="0 0 16 16">
+        <path d="M2 8 L14 8" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"/>
+        <circle cx="4" cy="8" r="1" fill="currentColor"/>
+        <circle cx="8" cy="8" r="1" fill="currentColor"/>
+        <circle cx="12" cy="8" r="1" fill="currentColor"/>
+      </svg>
+      Add Spacer
     </button>
   </div>
 

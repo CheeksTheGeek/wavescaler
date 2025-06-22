@@ -47,6 +47,11 @@
 		waveformData = waveformData; // Trigger reactivity
 	}
 
+	function handleAddSpacer() {
+		waveformData.signal = [...waveformData.signal, {}];
+		waveformData = waveformData; // Trigger reactivity
+	}
+
 	function handleClear() {
 		waveformData = {
 			signal: [],
@@ -144,8 +149,9 @@
 			if (Array.isArray(item)) {
 				// It's a group - iterate through its signals
 				for (let i = 1; i < item.length; i++) {
-					if (currentIndex === index && typeof item[i] === 'object' && 'name' in item[i]) {
-						return item[i] as WaveSignal;
+					const subItem = item[i];
+					if (currentIndex === index && subItem && typeof subItem === 'object' && !Array.isArray(subItem) && 'name' in subItem) {
+						return subItem as WaveSignal;
 					}
 					currentIndex++;
 				}
@@ -284,7 +290,8 @@
 			if (Array.isArray(item)) {
 				// It's a group - iterate through its signals
 				for (let j = 1; j < item.length; j++) {
-					if (currentIndex === index && typeof item[j] === 'object' && 'name' in item[j]) {
+					const subItem = item[j];
+					if (currentIndex === index && subItem && typeof subItem === 'object' && !Array.isArray(subItem) && 'name' in subItem) {
 						item[j] = newSignal;
 						return;
 					}
@@ -422,6 +429,7 @@
 				waveJson={waveformData}
 				on:addsignal={handleAddSignal}
 				on:addgroup={handleAddGroup}
+				on:addspacer={handleAddSpacer}
 				on:clear={handleClear}
 				on:export={handleExport}
 				on:import={handleImport}
