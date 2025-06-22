@@ -45,7 +45,7 @@
     let animationFrameId: number | null = null;
     let isUpdating = false;
   
-    // Process wave string into individual cycles
+        // Process wave string into individual cycles
     $: {
       const waveChars = signal.wave.split('');
       const dataArray = Array.isArray(signal.data) 
@@ -55,19 +55,19 @@
       let dataIndex = 0;
       let effectivePrevChar: string | null = null;
       const newCycles: ProcessedCycle[] = [];
-  
+
       for (let i = 0; i < maxCycles; i++) {
         const originalChar = i < waveChars.length ? waveChars[i] : '';
         let effectiveChar = originalChar;
-  
+
         // Handle continuation dots
         if (originalChar === '.') {
           effectiveChar = effectivePrevChar || '';
         }
-  
+
         // Determine if this cycle is interactive (can be clicked/dragged)
         const isInteractive = ['0', '1', 'x', 'z', ''].includes(effectiveChar) || effectiveChar === '';
-  
+
         // Handle data values for data signals
         let dataValue: string | undefined;
         if (['=', '2', '3', '4', '5'].includes(effectiveChar)) {
@@ -91,35 +91,32 @@
             }
           }
         }
-  
+
         newCycles.push({
           cycleIndex: i,
           originalChar,
           effectiveChar,
           isInteractive,
           dataValue,
-          displayText: dataValue // Initially, displayText equals dataValue
+          displayText: dataValue ? undefined : dataValue // Hide text immediately for data cycles
         });
-  
+
         if (originalChar !== '.') {
           effectivePrevChar = originalChar;
         }
       }
-  
+
+      // Assign cycles immediately for synchronous rendering
       cycles = newCycles;
       
-      // Hide text in all data cycles immediately to prevent flashing
-      cycles = cycles.map(cycle => ({
-        ...cycle,
-        displayText: cycle.dataValue ? undefined : cycle.displayText
-      }));
-      
       // Calculate spans after DOM is updated
-      setTimeout(() => {
-        if (signalCyclesContainer) {
-          calculateSpanPositions();
-        }
-      }, 0);
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => {
+          if (signalCyclesContainer) {
+            calculateSpanPositions();
+          }
+        });
+      }
     }
   
     // Debounced recalculation when scale changes
@@ -139,10 +136,18 @@
     }
   
     // Recalculate transition positions when cycles change
-    $: if (cycles.length > 0 && signalCyclesContainer) {
-      setTimeout(() => {
+    $: if (cycles.length > 0 && signalCyclesContainer && typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(() => {
         smoothUpdateTransitions();
-      }, 0);
+      });
+    }
+    
+    // Also recalculate when signal.wave changes (for context menu updates)
+    $: if (signal.wave && signalCyclesContainer && typeof requestAnimationFrame !== 'undefined') {
+      // Use requestAnimationFrame for better performance and immediate visual updates
+      requestAnimationFrame(() => {
+        smoothUpdateTransitions();
+      });
     }
   
     // Set up resize observer for continuous positioning updates
@@ -265,6 +270,15 @@
       };
       
       dispatch('signalchange', { signalIndex, newSignal });
+      
+      // Force immediate recalculation of transitions after the DOM updates
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => {
+          if (signalCyclesContainer) {
+            smoothUpdateTransitions();
+          }
+        });
+      }
     }
   
     function handleBulkCycleChange(startIndex: number, endIndex: number, newChar: string) {
@@ -405,7 +419,7 @@
         const currentCycle = signalCyclesContainer.querySelector(`[data-cycle-index="${i}"]`) as HTMLElement;
         const nextCycle = signalCyclesContainer.querySelector(`[data-cycle-index="${i + 1}"]`) as HTMLElement;
         
-        if (currentCycle && nextCycle) {
+        if (currentCycle && nextCycle && needsTransition(cycles[i], cycles[i + 1])) {
           const containerRect = signalCyclesContainer.getBoundingClientRect();
           const currentRect = currentCycle.getBoundingClientRect();
           const nextRect = nextCycle.getBoundingClientRect();
@@ -419,6 +433,12 @@
             left: transitionLeft,
             width: transitionWidth
           });
+        } else {
+          // Push a placeholder to maintain index alignment
+          newTransitionPositions.push({
+            left: 0,
+            width: 0
+          });
         }
       }
       
@@ -429,14 +449,20 @@
       if (isUpdating) return;
       isUpdating = true;
       
-      if (animationFrameId) {
+      if (animationFrameId && typeof cancelAnimationFrame !== 'undefined') {
         cancelAnimationFrame(animationFrameId);
       }
       
-      animationFrameId = requestAnimationFrame(() => {
+      if (typeof requestAnimationFrame !== 'undefined') {
+        animationFrameId = requestAnimationFrame(() => {
+          calculateTransitionPositions();
+          isUpdating = false;
+        });
+      } else {
+        // Fallback for SSR
         calculateTransitionPositions();
         isUpdating = false;
-      });
+      }
     }
   </script>
   
@@ -464,7 +490,7 @@
   
     <!-- Signal Cycles -->
     <div class="signal-cycles" bind:this={signalCyclesContainer}>
-      {#each cycles as cycle, index (cycle.cycleIndex)}
+      {#each cycles as cycle, index (`${cycle.cycleIndex}-${cycle.effectiveChar}-${cycle.originalChar}`)}
         {@const isSelected = isCellSelected(signalIndex, cycle.cycleIndex)}
         {@const prevCycle = index > 0 ? cycles[index - 1] : null}
         {@const nextCycle = index < cycles.length - 1 ? cycles[index + 1] : null}
@@ -487,9 +513,10 @@
       {/each}
       
       <!-- Render all transitions as absolute positioned overlays -->
-      {#each cycles as cycle, index (cycle.cycleIndex)}
+      {#each cycles as cycle, index (`transition-${cycle.cycleIndex}-${cycle.effectiveChar}`)}
         {@const nextCycle = index < cycles.length - 1 ? cycles[index + 1] : null}
-        {#if nextCycle && transitionPositions[index]}
+        {@const needsCurrentTransition = nextCycle ? needsTransition(cycle, nextCycle) : false}
+        {#if nextCycle && needsCurrentTransition && transitionPositions[index] && transitionPositions[index].width > 0}
           <div class="transition-overlay" style="left: {transitionPositions[index].left}px; width: {transitionPositions[index].width}px;">
           <SignalTransition 
             fromCycle={cycle}

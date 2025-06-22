@@ -100,6 +100,15 @@
   $: rightOffset = hasRightTransition ? transitionWidth / 2 : 0;
   $: signalLineWidth = cycleWidth - leftOffset - rightOffset;
   $: signalLineLeft = leftOffset;
+  
+  // Force immediate visual update when cycle data changes
+  $: cycleKey = `${cycle.cycleIndex}-${cycle.effectiveChar}-${cycle.originalChar}`;
+  
+  // Reactive update to ensure immediate rendering when cycle changes
+  let forceUpdate = 0;
+  $: if (cycle.effectiveChar) {
+    forceUpdate++;
+  }
 </script>
 
 <div 
@@ -113,6 +122,8 @@
     --signal-line-left: {signalLineLeft}px;
   "
   data-cycle-index={cycle.cycleIndex}
+  data-cycle-key={cycleKey}
+  data-force-update={forceUpdate}
   on:click={handleClick}
   on:contextmenu={handleRightClick}
   role={cycle.isInteractive ? 'button' : 'presentation'}
@@ -189,7 +200,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    /* Only animate background-color and opacity, not all properties */
+    transition: background-color 0.15s ease, opacity 0.15s ease;
     user-select: none;
     flex-shrink: 0;
     background-color: transparent; /* Allow grid lines to show through */
