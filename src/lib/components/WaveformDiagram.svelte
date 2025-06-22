@@ -61,7 +61,29 @@
     }
   
     calculatedTotalSvgHeight = headHeight + calculateHeightRecursive(waveJson.signal, 0) + footHeight;
-    let currentYOffset = headHeight; // Start drawing signals below the head
+    
+    // Calculate Y positions for each item without reactive mutations
+    function getYPositionForItem(itemIndex: number): number {
+      let yPos = headHeight; // Start drawing signals below the head
+      
+      for (let i = 0; i < itemIndex; i++) {
+        const item = waveJson.signal[i];
+        const type = getItemType(item);
+        
+        if (type === 'signal') {
+          yPos += laneHeight;
+        } else if (type === 'spacer') {
+          yPos += laneHeight / 1.5;
+        } else if (type === 'group') {
+          yPos += laneHeight; // For group label
+          yPos += calculateHeightRecursive((item as WaveGroup).slice(1) as SignalItem[], 1);
+        } else if (type === 'unknown') {
+          yPos += laneHeight;
+        }
+      }
+      
+      return yPos;
+    }
   
     // --- JsonML Rendering (Simplified) ---
     function renderJsonMlToSvg(ml: JsonMl | undefined, x: number, y: number): string {
@@ -138,12 +160,12 @@
       <!-- Ticks for head would be rendered here -->
     {/if}
   
-    <!-- Main Signal Area -->
+        <!-- Main Signal Area -->
     <g class="signal-area" transform="translate(0, {headHeight})">
-      {#each waveJson.signal as item, i (JSON.stringify(item) + i)} <!-- Basic key, consider more robust unique ID generation -->
+      {#each waveJson.signal as item, i (i)} <!-- Use simple index for stable keying -->
         {@const itemType = getItemType(item)}
-        {@const yPos = currentYOffset}
-  
+        {@const yPos = getYPositionForItem(i)}
+
         {#if itemType === 'signal'}
           <SignalLane
             signal={item as WaveSignal}
@@ -155,11 +177,9 @@
             {hscale}
             {maxCycles}
           />
-          {@const _ = currentYOffset += laneHeight}
         {:else if itemType === 'group'}
           <SignalGroup
             group={item as WaveGroup}
-            bind:currentYOffset={currentYOffset}
             y={yPos}
             {nameWidth}
             {cycleWidth}
@@ -169,13 +189,10 @@
             level={0}
             {getItemType}
           />
-          <!-- currentYOffset is updated by SignalGroup via binding -->
         {:else if itemType === 'spacer'}
-          <!-- Spacer: just advance Y. Could draw a faint line or nothing. -->
-          {@const _ = currentYOffset += (laneHeight / 1.5)}
+          <!-- Spacer: just a visual gap -->
         {:else if itemType === 'unknown'}
           <text x="10" y={yPos + laneHeight / 2} fill="red">Unknown item type at index {i}</text>
-          {@const _ = currentYOffset += laneHeight}
         {/if}
       {/each}
     </g>

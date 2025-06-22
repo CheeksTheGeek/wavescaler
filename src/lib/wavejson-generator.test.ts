@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateWaveJsonString } from './wavejson-generator';
 import { parseWaveJson } from './wavejson-parser'; // To verify output
-import type { WaveJson, WaveSignal, WaveGroup } from './wavejson-types';
+import type { WaveJson } from './wavejson-types';
 
 describe('generateWaveJsonString', () => {
   it('should generate a JSON string from a minimal WaveJson object (pretty print)', () => {

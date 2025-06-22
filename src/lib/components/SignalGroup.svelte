@@ -4,7 +4,7 @@
     // Recursive type for svelte:self, not strictly needed for TS but good for clarity
     // type SignalGroupComponent = typeof import('./SignalGroup.svelte').default;
   
-    export let group: WaveGroup;
+        export let group: WaveGroup;
     export let y: number; // Starting y position for this group's own label.
     export let nameWidth: number;
     export let cycleWidth: number;
@@ -14,37 +14,52 @@
     export let level: number; // Nesting level
     export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
   
-    // This is the critical part for managing layout across nested groups.
-    // currentYOffset is the Y where the *next* child item (lane or subgroup label) should be placed.
-    // It's bound upwards to the parent.
-    export let currentYOffset: number;
-  
     const groupName = group[0];
     const groupItems = group.slice(1) as SignalItem[];
   
-    const nameIndent = level * 20; // Indent nested group names visually
+        const nameIndent = level * 20; // Indent nested group names visually
     const effectiveNameWidth = nameWidth - nameIndent;
-  
-    // The group's own label is placed at 'y'.
-    // Then, currentYOffset is advanced because this group's label has taken up a slot.
-    // This must happen *before* children are rendered.
-    // This is a bit tricky with Svelte's reactivity.
-    // One way: parent passes currentY, group uses it for label, then immediately tells parent new currentY.
-  
-    // Let's refine: 'y' is where this group's label is drawn.
-    // 'currentYOffset' is what this group will update as it places its children.
-    // The PARENT component (WaveformDiagram or another SignalGroup) is responsible for
-    // setting the 'y' for this group's label AND advancing its OWN currentYOffset after this group label.
-  
-    // When this component is initialized:
-    // 1. Its label is drawn at `y`.
-    // 2. The `currentYOffset` (bound from parent) should reflect the Y *after* this group's label.
-    //    So, the parent should have already advanced its currentYOffset by laneHeight when calling this.
-    //    This means `y` for this component is `parentCurrentYOffset - laneHeight` (roughly).
-    //    Or more simply: parent passes `y` for the label. This component's children start at `y + laneHeight`.
-  
-    let childrenStartOperatingY = y + laneHeight; // Children will start rendering below this group's label.
-                                                  // This local variable tracks where this group's children begin.
+
+    // Calculate positions for child items
+    function getChildYPosition(childIndex: number): number {
+      let childY = y + laneHeight; // Start below the group label
+      
+      for (let i = 0; i < childIndex; i++) {
+        const item = groupItems[i];
+        const type = getItemType(item);
+        
+        if (type === 'signal') {
+          childY += laneHeight;
+        } else if (type === 'spacer') {
+          childY += laneHeight / 1.5;
+        } else if (type === 'group') {
+          childY += laneHeight; // For group label
+          childY += calculateGroupHeight((item as WaveGroup).slice(1) as SignalItem[]);
+        } else if (type === 'unknown') {
+          childY += laneHeight;
+        }
+      }
+      
+      return childY;
+    }
+    
+    function calculateGroupHeight(items: SignalItem[]): number {
+      let height = 0;
+      items.forEach(item => {
+        const type = getItemType(item);
+        if (type === 'signal') {
+          height += laneHeight;
+        } else if (type === 'spacer') {
+          height += laneHeight / 1.5;
+        } else if (type === 'group') {
+          height += laneHeight; // For group label itself
+          height += calculateGroupHeight((item as WaveGroup).slice(1) as SignalItem[]);
+        } else if (type === 'unknown') {
+          height += laneHeight;
+        }
+      });
+      return height;
+    }
   
   </script>
   
@@ -59,11 +74,11 @@
       {groupName}
     </text>
   
-    <!-- Render Children -->
+        <!-- Render Children -->
     {#each groupItems as item, index (index)}
       {@const itemType = getItemType(item)}
-      {@const childComponentY = childrenStartOperatingY} <!-- The Y position for the current child's label/top -->
-  
+      {@const childComponentY = getChildYPosition(index)}
+
       {#if itemType === 'signal'}
         <SignalLane
           signal={item as WaveSignal}
@@ -75,12 +90,10 @@
           {hscale}
           {maxCycles}
         />
-        {@const _ = childrenStartOperatingY += laneHeight}
       {:else if itemType === 'group'}
         <svelte:self
           group={item as WaveGroup}
           y={childComponentY}
-          bind:currentYOffset={childrenStartOperatingY}
           nameWidth={nameWidth}
           {cycleWidth}
           {laneHeight}
@@ -89,17 +102,12 @@
           level={level + 1}
           {getItemType}
         />
-        <!-- childrenStartOperatingY is now updated by the recursive call -->
       {:else if itemType === 'spacer'}
-        {@const _ = childrenStartOperatingY += (laneHeight / 1.5)}
+        <!-- Spacer: just a visual gap -->
       {:else if itemType === 'unknown'}
         <text x="10" y={childComponentY + laneHeight / 2} fill="red" font-size="12">Unknown item type in group</text>
-        {@const _ = childrenStartOperatingY += laneHeight}
       {/if}
     {/each}
-    {#if true}
-      {@const _ = currentYOffset = childrenStartOperatingY} <!-- Finally, update the bound prop with the total height consumed by this group and its children -->
-    {/if}
   </g>
   
   <style>
