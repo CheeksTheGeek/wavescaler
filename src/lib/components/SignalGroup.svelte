@@ -20,6 +20,7 @@
       groupchange: { groupIndex: number; newGroup: WaveGroup };
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
+      transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
     }>();
   
       $: groupName = group[0];
@@ -188,6 +189,7 @@
               on:signalchange={handleSignalChange}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
+              on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
             />
           {:else if itemType === 'group'}
             <svelte:self
@@ -203,6 +205,7 @@
               on:groupchange={handleNestedGroupChange}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
+              on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
             />
           {:else if itemType === 'spacer'}
             <div class="group-spacer"></div>

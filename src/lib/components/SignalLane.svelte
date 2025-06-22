@@ -2,6 +2,7 @@
     import type { WaveSignal } from '$lib/wavejson-types';
     import { createEventDispatcher } from 'svelte';
     import SignalCycle from './SignalCycle.svelte';
+    import SignalTransition from './SignalTransition.svelte';
   
         export let signal: WaveSignal;
   export let signalIndex: number;
@@ -13,6 +14,7 @@
       signalchange: { signalIndex: number; newSignal: WaveSignal };
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
+      transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
     }>();
   
     interface ProcessedCycle {
@@ -154,9 +156,17 @@
         isEditingName = false;
       }
     }
+
+    function handleTransitionClick(event: CustomEvent<{ fromCycleIndex: number; toCycleIndex: number }>) {
+      dispatch('transitionclick', {
+        signalIndex,
+        fromCycleIndex: event.detail.fromCycleIndex,
+        toCycleIndex: event.detail.toCycleIndex
+      });
+    }
   </script>
   
-  <div class="signal-lane">
+  <div class="signal-lane" style="--hscale: {hscale}; --cycle-height: 40px;">
     <!-- Signal Name -->
     <div class="signal-name-container">
       {#if isEditingName}
@@ -180,8 +190,11 @@
   
     <!-- Signal Cycles -->
     <div class="signal-cycles">
-      {#each processedCycles as cycle (cycle.cycleIndex)}
+      {#each processedCycles as cycle, index (cycle.cycleIndex)}
         {@const isSelected = isCellSelected(signalIndex, cycle.cycleIndex)}
+        {@const nextCycle = index < processedCycles.length - 1 ? processedCycles[index + 1] : null}
+        
+        <!-- Render the cycle -->
         <SignalCycle
           {cycle}
           {hscale}
@@ -192,6 +205,16 @@
           on:cellselection={(e) => dispatch('cellselection', e.detail)}
           on:rightclick={(e) => dispatch('rightclick', e.detail)}
         />
+        
+        <!-- Render transition to next cycle (if there is one) -->
+        {#if nextCycle}
+          <SignalTransition 
+            fromCycle={cycle}
+            toCycle={nextCycle}
+            {hscale}
+            on:transitionclick={handleTransitionClick}
+          />
+        {/if}
       {/each}
     </div>
   </div>

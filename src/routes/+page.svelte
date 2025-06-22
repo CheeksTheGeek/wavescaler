@@ -363,6 +363,14 @@
 		}
 	}
 
+	function handleTransitionClick(event: CustomEvent<{ signalIndex: number; fromCycleIndex: number; toCycleIndex: number }>) {
+		const { signalIndex, fromCycleIndex, toCycleIndex } = event.detail;
+		console.log('Transition clicked:', { signalIndex, fromCycleIndex, toCycleIndex });
+		
+		// Future: implement transition drag functionality
+		// For now, just log the event
+	}
+
 	// Handle clicking outside of cells to clear selection
 	function handleBackgroundClick(event: MouseEvent) {
 		// Only clear selection if clicking on the background, not on interactive elements
@@ -436,6 +444,7 @@
 					on:structurechange={handleStructureChange}
 					on:cellselection={handleCellSelection}
 					on:cyclechange={handleCycleChange}
+					on:transitionclick={handleTransitionClick}
 					{isCellSelected}
 				/>
 			</div>

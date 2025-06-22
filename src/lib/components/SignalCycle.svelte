@@ -34,6 +34,35 @@
     return 'unknown';
   }
 
+  // Get the vertical position where the signal line is located (as percentage from top)
+  export function getSignalLinePosition(): number {
+    const type = getCycleType();
+    
+    switch (type) {
+      case 'high':
+        return 20; // 20% from top
+      case 'low':
+        return 80; // 80% from top (20% from bottom)
+      case 'data':
+      case 'x':
+      case 'z':
+      case 'clock':
+        return 50; // Middle
+      case 'gap':
+      case 'empty':
+      default:
+        return 50; // Middle for unknown states
+    }
+  }
+
+  // Get the absolute pixel position for the signal line
+  function getSignalLinePixelPosition(): number {
+    const percentage = getSignalLinePosition();
+    // Convert percentage to pixels based on the cycle height (40px default)
+    const cycleHeight = 40;
+    return (percentage / 100) * cycleHeight;
+  }
+
   function handleClick(event: MouseEvent) {
     // Only handle selection, no value toggling
     dispatch('cellselection', { 
@@ -59,14 +88,18 @@
   }
 
   $: cycleType = getCycleType();
-  $: cycleWidth = 20 * hscale;
+  $: cycleWidth = (40 - 8) * hscale; // Subtract transition width
+  $: signalLinePixelPos = getSignalLinePixelPosition();
 </script>
 
 <div 
   class="signal-cycle {cycleType}"
   class:interactive={cycle.isInteractive}
   class:selected={isSelected}
-  style="width: {cycleWidth}px"
+  style="
+    width: {cycleWidth}px;
+    --signal-line-y: {signalLinePixelPos}px;
+  "
   data-cycle-index={cycle.cycleIndex}
   on:click={handleClick}
   on:contextmenu={handleRightClick}
@@ -75,13 +108,36 @@
 >
   <!-- Signal visualization -->
   <div class="signal-visual">
-    {#if cycleType === 'data' && cycle.dataValue}
-      <div class="data-value">{cycle.dataValue}</div>
+    {#if cycleType === 'high'}
+      <div class="signal-line high-line"></div>
+    {:else if cycleType === 'low'}
+      <div class="signal-line low-line"></div>
+    {:else if cycleType === 'data' && cycle.dataValue}
+      <div class="data-shape">
+        <div class="data-value">{cycle.dataValue}</div>
+      </div>
     {:else if cycleType === 'x'}
       <div class="x-pattern">
         <div class="x-line-1"></div>
         <div class="x-line-2"></div>
       </div>
+    {:else if cycleType === 'z'}
+      <div class="z-line"></div>
+    {:else if cycleType === 'clock'}
+      {#if cycle.effectiveChar === 'p' || cycle.effectiveChar === 'P'}
+        <!-- Positive clock -->
+        <svg width="100%" height="100%" viewBox="0 0 32 40" preserveAspectRatio="none">
+          <polyline points="0,32 8,32 8,8 24,8 24,32 32,32" fill="none" stroke="#10b981" stroke-width="2"/>
+        </svg>
+      {:else if cycle.effectiveChar === 'n' || cycle.effectiveChar === 'N'}
+        <!-- Negative clock -->
+        <svg width="100%" height="100%" viewBox="0 0 32 40" preserveAspectRatio="none">
+          <polyline points="0,8 8,8 8,32 24,32 24,8 32,8" fill="none" stroke="#10b981" stroke-width="2"/>
+        </svg>
+      {:else}
+        <!-- Other clock states -->
+        <div class="signal-line {cycle.effectiveChar === 'h' || cycle.effectiveChar === 'H' ? 'high-line' : 'low-line'}"></div>
+      {/if}
     {:else if cycleType === 'gap'}
       <div class="gap-lines">
         <div class="gap-line"></div>
@@ -103,9 +159,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-right: 1px solid rgba(229, 229, 229, 0.5);
     transition: all 0.15s ease;
     user-select: none;
+    flex-shrink: 0;
   }
 
   .signal-cycle.interactive {
@@ -114,60 +170,12 @@
 
   .signal-cycle.interactive:hover {
     background-color: rgba(59, 130, 246, 0.1);
-    border-color: #3b82f6;
   }
 
   .signal-cycle.selected {
     background-color: rgba(59, 130, 246, 0.3) !important;
-    border: 2px solid #3b82f6 !important;
-    box-shadow: 0 0 0 1px #3b82f6;
+    box-shadow: 0 0 0 2px #3b82f6;
     z-index: 10;
-  }
-
-  /* Signal state styles */
-  .signal-cycle.high {
-    background-color: #dbeafe;
-    border-top: 3px solid #3b82f6;
-  }
-
-  .signal-cycle.low {
-    background-color: #dbeafe;
-    border-bottom: 3px solid #3b82f6;
-  }
-
-  .signal-cycle.x {
-    background-color: #fef2f2;
-  }
-
-  .signal-cycle.z {
-    background-color: #fef3c7;
-    border-top: 2px solid #f59e0b;
-    border-bottom: 2px solid #f59e0b;
-  }
-
-  .signal-cycle.data {
-    background-color: #f3f4f6;
-    border: 2px solid #6b7280;
-  }
-
-  .signal-cycle.clock {
-    background-color: #d1fae5;
-    border-top: 2px solid #10b981;
-    border-bottom: 2px solid #10b981;
-  }
-
-  .signal-cycle.gap {
-    background-color: #f9fafb;
-  }
-
-  .signal-cycle.empty {
-    background-color: #fafafa;
-    border: 1px dashed #d1d5db;
-  }
-
-  .signal-cycle.unknown {
-    background-color: #f3f4f6;
-    border: 1px solid #ef4444;
   }
 
   .signal-visual {
@@ -179,20 +187,52 @@
     position: relative;
   }
 
+  /* Signal lines for binary signals */
+  .signal-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background-color: #2563eb;
+    left: 0;
+    top: var(--signal-line-y);
+    transform: translateY(-50%);
+  }
+
+  .high-line {
+    /* Position controlled by CSS variable */
+  }
+
+  .low-line {
+    /* Position controlled by CSS variable */
+  }
+
+  /* Data signal shapes */
+  .data-shape {
+    position: relative;
+    width: 90%;
+    height: 60%;
+    background-color: #f3f4f6;
+    border: 2px solid #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Hexagon-like shape for data */
+    clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+  }
+
   .data-value {
     font-size: 10px;
     font-weight: 500;
     color: #374151;
-    background-color: white;
-    padding: 2px 4px;
-    border-radius: 2px;
-    border: 1px solid #d1d5db;
-    max-width: 100%;
+    text-align: center;
+    max-width: 90%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
+  /* X pattern for unknown/undefined */
   .x-pattern {
     position: relative;
     width: 80%;
@@ -217,6 +257,23 @@
     transform: translateY(-50%) rotate(-45deg);
   }
 
+  /* Z-state (high impedance) */
+  .z-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: repeating-linear-gradient(
+      to right,
+      #f59e0b,
+      #f59e0b 4px,
+      transparent 4px,
+      transparent 8px
+    );
+    top: 50%;
+    left: 0;
+  }
+
+  /* Gap indicators */
   .gap-lines {
     display: flex;
     flex-direction: column;
@@ -232,6 +289,7 @@
     margin: 0 auto;
   }
 
+  /* Empty cycle overlay */
   .empty-overlay {
     position: absolute;
     top: 50%;

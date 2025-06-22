@@ -2,7 +2,7 @@
   export let maxCycles: number;
   export let hscale: number = 1;
 
-  $: cycleWidth = 20 * hscale;
+  $: cycleWidth = 40 * hscale;
   $: totalWidth = maxCycles * cycleWidth;
 </script>
 

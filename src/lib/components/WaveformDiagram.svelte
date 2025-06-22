@@ -14,6 +14,7 @@
     structurechange: { newWaveJson: WaveJson };
     cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
     cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
+    transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
   }>();
 
   // Context menu state
@@ -40,7 +41,7 @@
     const laneHeight = 20; // Height of a single signal lane (can be part of config later)
     const nameWidth = 150; // Width allocated for signal/group names
     const wavePadding = 5; // Padding
-    $: cycleWidth = 20 * hscale; // Width of a single cycle char
+    $: cycleWidth = 40 * hscale; // Width of a single cycle char
   
     let maxCycles = 0;
   
@@ -60,8 +61,10 @@
     // Make maxCycles reactive
     $: {
       maxCycles = findMaxCycles(waveJson.signal);
-      // Ensure minimum cycles for interaction
-      maxCycles = Math.max(maxCycles, 16);
+      // Add just one extra cycle for the "add" button functionality
+      maxCycles = maxCycles + 1;
+      // Ensure minimum of 8 cycles for usability
+      maxCycles = Math.max(maxCycles, 8);
     }
 
     // Create signal index map reactively
@@ -332,6 +335,7 @@
               on:signalchange={(e) => handleSignalChange(e)}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:rightclick={(e) => handleRightClick(e)}
+              on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
             />
           {:else if itemType === 'group'}
             <SignalGroup
@@ -389,7 +393,7 @@
   <style>
     .waveform-diagram {
       --name-width: 150px;
-      --cycle-width: calc(20px * var(--hscale));
+      --cycle-width: calc(40px * var(--hscale));
       --lane-height: 40px;
       --grid-color: #e5e5e5;
       --border-color: #d1d5db;
