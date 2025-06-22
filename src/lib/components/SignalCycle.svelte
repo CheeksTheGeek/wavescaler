@@ -359,7 +359,7 @@
   .x-pattern {
     position: absolute;
     width: var(--signal-line-width);
-    height: 60%;
+    height: 70%;
     top: var(--signal-line-y);
     left: var(--signal-line-left);
     transform: translateY(-50%);

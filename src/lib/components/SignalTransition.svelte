@@ -73,8 +73,8 @@
         break;
       case 'x':
         yPercent = 50; // Middle
-        // For x signals, use the visual boundaries (60% height centered at 50%)
-        const xHeight = cycleHeight * 0.6;
+        // For x signals, use the visual boundaries (70% height centered at 50%)
+        const xHeight = cycleHeight * 0.7;
         const xCenterY = (yPercent / 100) * cycleHeight;
         topY = xCenterY - xHeight / 2;
         bottomY = xCenterY + xHeight / 2;
@@ -385,7 +385,7 @@
     opacity: 0.6;
     border-top: 2px solid #2563eb;
     border-bottom: 2px solid #2563eb;
-    height: 60%;
+    height: 70%;
   }
 
   .cross-fill-left.x {
@@ -456,7 +456,7 @@
   /* Enhanced styling for data transitions */
   .signal-transition.data-transition .cross-line {
     /* Slightly thicker lines for data transitions to make them more visible */
-    height: 2.5px;
+    height: 2.2px;
     /* Ensure they connect precisely to data signal edges */
     z-index: 3;
   }
