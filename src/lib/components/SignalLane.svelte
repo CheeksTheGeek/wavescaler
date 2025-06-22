@@ -23,11 +23,22 @@
       effectiveChar: string;
       isInteractive: boolean;
       dataValue?: string;
+      displayText?: string;
     }
   
-    let processedCycles: ProcessedCycle[] = [];
+    let cycles: ProcessedCycle[] = [];
+    let spans: Array<{
+      start: number;
+      end: number;
+      text: string;
+      left: number;
+      width: number;
+    }> = [];
     let isEditingName = false;
     let nameInput = '';
+    let editingSpan: number | null = null;
+    let signalCyclesContainer: HTMLElement;
+    let recalculateTimeout: number;
   
     // Process wave string into individual cycles
     $: {
@@ -81,7 +92,8 @@
           originalChar,
           effectiveChar,
           isInteractive,
-          dataValue
+          dataValue,
+          displayText: dataValue // Initially, displayText equals dataValue
         });
   
         if (originalChar !== '.') {
@@ -89,7 +101,108 @@
         }
       }
   
-      processedCycles = newCycles;
+      cycles = newCycles;
+      
+      // Hide text in all data cycles immediately to prevent flashing
+      cycles = cycles.map(cycle => ({
+        ...cycle,
+        displayText: cycle.dataValue ? undefined : cycle.displayText
+      }));
+      
+      // Calculate spans after DOM is updated
+      setTimeout(() => {
+        if (signalCyclesContainer) {
+          calculateSpanPositions();
+        }
+      }, 0);
+    }
+  
+    // Debounced recalculation when scale changes
+    $: if (hscale && signalCyclesContainer) {
+      clearTimeout(recalculateTimeout);
+      
+      // Hide text immediately during scaling
+      cycles = cycles.map(cycle => ({
+        ...cycle,
+        displayText: cycle.dataValue ? undefined : cycle.displayText
+      }));
+      
+      recalculateTimeout = setTimeout(() => {
+        calculateSpanPositions();
+      }, 100); // Debounce for 100ms
+    }
+  
+    function calculateSpanPositions() {
+      if (!signalCyclesContainer) return;
+      
+      const dataSpans: Array<{
+        start: number;
+        end: number;
+        text: string;
+        left: number;
+        width: number;
+      }> = [];
+      
+      // Find all data spans
+      for (let i = 0; i < cycles.length; i++) {
+        if (cycles[i].dataValue) {
+          let spanStart = i;
+          let spanEnd = i;
+          const currentDataValue = cycles[i].dataValue;
+          
+          // Find the span of consecutive cycles with the same data value
+          while (spanStart > 0 && cycles[spanStart - 1].dataValue === currentDataValue) {
+            spanStart--;
+          }
+          
+          while (spanEnd < cycles.length - 1 && cycles[spanEnd + 1].dataValue === currentDataValue) {
+            spanEnd++;
+          }
+          
+          // Get actual DOM positions of the cycles in this span
+          const startCycleElement = signalCyclesContainer.querySelector(`[data-cycle-index="${spanStart}"]`) as HTMLElement;
+          const endCycleElement = signalCyclesContainer.querySelector(`[data-cycle-index="${spanEnd}"]`) as HTMLElement;
+          
+          if (startCycleElement && endCycleElement && currentDataValue) {
+            const containerRect = signalCyclesContainer.getBoundingClientRect();
+            const startRect = startCycleElement.getBoundingClientRect();
+            const endRect = endCycleElement.getBoundingClientRect();
+            
+            // Calculate position relative to the container
+            const left = startRect.left - containerRect.left;
+            const width = endRect.right - startRect.left;
+            
+            dataSpans.push({
+              start: spanStart,
+              end: spanEnd,
+              text: currentDataValue,
+              left: left,
+              width: width
+            });
+          }
+          
+          // Skip to end of span
+          i = spanEnd;
+        }
+      }
+      
+      spans = dataSpans;
+      
+      // Show text for single cycles, hide for multi-cycle spans
+      cycles = cycles.map(cycle => {
+        if (!cycle.dataValue) return cycle;
+        
+        const span = dataSpans.find(span => 
+          cycle.cycleIndex >= span.start && cycle.cycleIndex <= span.end
+        );
+        
+        // If part of a multi-cycle span, hide text (overlay will show it)
+        // If single cycle (no span found), show text in the cycle
+        return {
+          ...cycle,
+          displayText: span ? undefined : cycle.dataValue
+        };
+      });
     }
   
     function handleCycleChange(cycleIndex: number, newChar: string) {
@@ -164,6 +277,47 @@
         toCycleIndex: event.detail.toCycleIndex
       });
     }
+
+    function startEditingSpan(spanIndex: number) {
+      editingSpan = spanIndex;
+    }
+
+    function finishEditingSpan(spanIndex: number, newText: string) {
+      if (newText.trim() && spans[spanIndex]) {
+        const span = spans[spanIndex];
+        
+        // Update data array
+        const newData = Array.isArray(signal.data) ? [...signal.data] : [];
+        
+        // Find which data index corresponds to this span
+        let dataIndex = 0;
+        for (let i = 0; i < span.start; i++) {
+          if (cycles[i]?.dataValue) {
+            dataIndex++;
+          }
+        }
+        
+        // Update the data value
+        newData[dataIndex] = newText.trim();
+        
+        const newSignal = {
+          ...signal,
+          data: newData
+        };
+        
+        dispatch('signalchange', { signalIndex, newSignal });
+      }
+      editingSpan = null;
+    }
+
+    function handleSpanKeydown(event: KeyboardEvent, spanIndex: number) {
+      if (event.key === 'Enter') {
+        const target = event.target as HTMLInputElement;
+        finishEditingSpan(spanIndex, target.value);
+      } else if (event.key === 'Escape') {
+        editingSpan = null;
+      }
+    }
   </script>
   
   <div class="signal-lane" style="--hscale: {hscale}; --cycle-height: 40px;">
@@ -189,10 +343,10 @@
     </div>
   
     <!-- Signal Cycles -->
-    <div class="signal-cycles">
-      {#each processedCycles as cycle, index (cycle.cycleIndex)}
+    <div class="signal-cycles" bind:this={signalCyclesContainer}>
+      {#each cycles as cycle, index (cycle.cycleIndex)}
         {@const isSelected = isCellSelected(signalIndex, cycle.cycleIndex)}
-        {@const nextCycle = index < processedCycles.length - 1 ? processedCycles[index + 1] : null}
+        {@const nextCycle = index < cycles.length - 1 ? cycles[index + 1] : null}
         
         <!-- Render the cycle -->
         <SignalCycle
@@ -215,6 +369,31 @@
             on:transitionclick={handleTransitionClick}
           />
         {/if}
+      {/each}
+      
+      <!-- Editable data text overlays -->
+      {#each spans as span, index}
+        <div class="data-text-overlay" 
+             style="left: {span.left}px; width: {span.width}px;">
+          {#if editingSpan === index}
+            <input
+              type="text"
+              class="data-text-input"
+              value={span.text}
+              on:blur={(e) => finishEditingSpan(index, (e.target as HTMLInputElement).value)}
+              on:keydown={(e) => handleSpanKeydown(e, index)}
+              autofocus
+            />
+          {:else}
+            <button 
+              class="data-text-button"
+              on:click={() => startEditingSpan(index)}
+              title="Click to edit data value"
+            >
+              {span.text}
+            </button>
+          {/if}
+        </div>
       {/each}
     </div>
   </div>
@@ -274,6 +453,63 @@
       display: flex;
       flex: 1;
       align-items: center;
+      position: relative;
+    }
+
+    .data-text-overlay {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      height: auto;
+      pointer-events: none; /* Only the button/input inside should be clickable */
+    }
+
+    .data-text-button {
+      background: transparent;
+      border: 1px solid transparent;
+      font: inherit;
+      color: #1f2937;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'Arial', sans-serif;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 3px;
+      transition: all 0.15s ease;
+      text-align: center;
+      white-space: nowrap;
+      pointer-events: auto;
+      min-width: fit-content;
+      height: auto;
+    }
+
+    .data-text-button:hover {
+      background-color: rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .data-text-input {
+      border: 1px solid #3b82f6;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'Arial', sans-serif;
+      background-color: white;
+      text-align: center;
+      pointer-events: auto;
+      min-width: 40px;
+      height: auto;
+    }
+
+    .data-text-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
     }
   </style>
   

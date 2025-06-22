@@ -41,8 +41,22 @@
     const fromType = getCycleType(fromCycle);
     const toType = getCycleType(toCycle);
     
-    // No transition if same type or from/to empty
-    if (fromType === toType || fromType === 'empty' || toType === 'empty') {
+    // No transition if from/to empty
+    if (fromType === 'empty' || toType === 'empty') {
+      return 'none';
+    }
+    
+    // For data signals, check if the actual data values are different
+    if (fromType === 'data' && toType === 'data') {
+      if (fromCycle.dataValue !== toCycle.dataValue) {
+        return 'cross'; // Different data values need cross transition
+      } else {
+        return 'none'; // Same data value, no transition needed
+      }
+    }
+    
+    // No transition if same type and not data
+    if (fromType === toType) {
       return 'none';
     }
     
@@ -56,6 +70,23 @@
     return 'cross';
   }
 
+  function needsCleanCrossTransition(): boolean {
+    const fromType = getCycleType(fromCycle);
+    const toType = getCycleType(toCycle);
+    
+    // Need clean cross when transitioning to/from undefined (x) or data signals
+    return (fromType === 'x' || toType === 'x' || 
+            fromType === 'data' || toType === 'data' ||
+            fromType === 'z' || toType === 'z');
+  }
+
+  function hasDataTransition(): boolean {
+    const fromType = getCycleType(fromCycle);
+    const toType = getCycleType(toCycle);
+    
+    return fromType === 'data' || toType === 'data';
+  }
+
   // Get CSS coordinate values for each signal type
   function getSignalCSSCoordinates(cycle: typeof fromCycle) {
     const type = getCycleType(cycle);
@@ -66,6 +97,8 @@
       case 'low':
         return { percent: 80, cssVar: '--signal-low' };
       case 'data':
+        // Data signals connect at their center line (middle of hexagon)
+        return { percent: 50, cssVar: '--signal-middle', isData: true };
       case 'x':
       case 'z':
       case 'clock':
@@ -90,26 +123,34 @@
   $: transitionWidth = 8 * hscale;
   $: fromCoords = getSignalCSSCoordinates(fromCycle);
   $: toCoords = getSignalCSSCoordinates(toCycle);
+  $: isCleanCross = needsCleanCrossTransition();
+  $: isDataTransition = hasDataTransition();
   
   // Calculate transition geometry with consistent units
   $: cycleHeight = 40;
   $: fromY = (fromCoords.percent / 100) * cycleHeight;
   $: toY = (toCoords.percent / 100) * cycleHeight;
   $: deltaY = toY - fromY;
-  $: lineAngle = Math.atan2(deltaY, transitionWidth) * (180 / Math.PI);
-  $: lineLength = Math.sqrt(transitionWidth * transitionWidth + deltaY * deltaY);
+  
+  // For cross transitions at the same Y level, force a visual separation
+  $: adjustedDeltaY = (transitionType === 'cross' && Math.abs(deltaY) < 1) ? 8 : deltaY;
+  $: lineAngle = Math.atan2(adjustedDeltaY, transitionWidth) * (180 / Math.PI);
+  $: lineLength = Math.sqrt(transitionWidth * transitionWidth + adjustedDeltaY * adjustedDeltaY);
 </script>
 
 {#if transitionType !== 'none'}
   <div 
     class="signal-transition {transitionType}"
     class:interactive={true}
+    class:data-transition={isDataTransition}
     style="
       width: {transitionWidth}px;
       --from-y: {fromY}px;
       --to-y: {toY}px;
       --line-angle: {lineAngle}deg;
       --line-length: {lineLength}px;
+      --is-clean-cross: {isCleanCross ? 1 : 0};
+      --cycle-height: {cycleHeight}px;
     "
     on:click={handleClick}
     on:mousedown={handleMouseDown}
@@ -193,16 +234,38 @@
     left: 0;
     transform-origin: left center;
     width: var(--line-length);
+    /* Ensure clean lines for pattern compatibility */
+    z-index: 2;
   }
 
   .cross-line-1 {
-    top: var(--from-y);
+    top: calc(var(--from-y) - 4px);
     transform: translateY(-1px) rotate(var(--line-angle));
   }
 
   .cross-line-2 {
-    top: var(--to-y);
+    top: calc(var(--from-y) + 4px);
     transform: translateY(-1px) rotate(calc(-1 * var(--line-angle)));
+  }
+
+  /* Enhanced styling for data transitions */
+  .signal-transition.data-transition .cross-line {
+    /* Slightly thicker lines for data transitions to make them more visible */
+    height: 2.5px;
+    /* Ensure they connect precisely to data signal edges */
+    z-index: 3;
+  }
+
+  .signal-transition.data-transition .cross-line-1 {
+    /* Precise positioning for data signal connection */
+    top: calc(var(--from-y) - 4px);
+    transform: translateY(-1.25px) rotate(var(--line-angle));
+  }
+
+  .signal-transition.data-transition .cross-line-2 {
+    /* Precise positioning for data signal connection */
+    top: calc(var(--from-y) + 4px);
+    transform: translateY(-1.25px) rotate(calc(-1 * var(--line-angle)));
   }
 
   /* Enhanced interactivity */

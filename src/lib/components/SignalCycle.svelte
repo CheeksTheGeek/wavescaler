@@ -7,6 +7,7 @@
     effectiveChar: string;
     isInteractive: boolean;
     dataValue?: string;
+    displayText?: string;
   };
   export let hscale: number = 1;
   export let signalIndex: number;
@@ -114,15 +115,21 @@
       <div class="signal-line low-line"></div>
     {:else if cycleType === 'data' && cycle.dataValue}
       <div class="data-shape">
-        <div class="data-value">{cycle.dataValue}</div>
+        {#if cycle.displayText}
+          <div class="data-value">{cycle.displayText}</div>
+        {/if}
       </div>
     {:else if cycleType === 'x'}
       <div class="x-pattern">
-        <div class="x-line-1"></div>
-        <div class="x-line-2"></div>
+        <!-- Diagonal hatching background pattern -->
+        <div class="x-top-border"></div>
+        <div class="x-bottom-border"></div>
       </div>
     {:else if cycleType === 'z'}
-      <div class="z-line"></div>
+      <div class="z-line">
+        <div class="z-top-border"></div>
+        <div class="z-bottom-border"></div>
+      </div>
     {:else if cycleType === 'clock'}
       {#if cycle.effectiveChar === 'p' || cycle.effectiveChar === 'P'}
         <!-- Positive clock -->
@@ -208,69 +215,184 @@
 
   /* Data signal shapes */
   .data-shape {
-    position: relative;
-    width: 90%;
-    height: 60%;
-    background-color: #f3f4f6;
-    border: 2px solid #6b7280;
+    position: absolute;
+    width: 100%;
+    height: 70%;
     display: flex;
     align-items: center;
     justify-content: center;
-    
-    /* Hexagon-like shape for data */
-    clip-path: polygon(10% 0%, 90% 0%, 100% 50%, 90% 100%, 10% 100%, 0% 50%);
+    z-index: 1;
+    top: var(--signal-line-y);
+    left: 0;
+    transform: translateY(-50%);
+    background-color: #f3f4f6;
+    border-top: 2px solid #6b7280;
+    border-bottom: 2px solid #6b7280;
+  }
+
+  .data-shape::before {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: -2px;
+    width: 0;
+    height: 0;
+    border-top: calc(50% + 2px) solid transparent;
+    border-bottom: calc(50% + 2px) solid transparent;
+    border-right: 12% solid #6b7280;
+  }
+
+  .data-shape::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: -2px;
+    width: 0;
+    height: 0;
+    border-top: calc(50% + 2px) solid transparent;
+    border-bottom: calc(50% + 2px) solid transparent;
+    border-left: 12% solid #6b7280;
+  }
+
+  .data-background {
+    position: absolute;
+    width: 85%;
+    height: 100%;
+    left: 7.5%;
+    background-color: #f3f4f6;
+    border-top: 2px solid #6b7280;
+    border-bottom: 2px solid #6b7280;
+  }
+
+  .data-left-edge {
+    position: absolute;
+    left: 7.5%;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 50% solid #f3f4f6;
+    border-bottom: 50% solid #f3f4f6;
+    border-left: 7.5% solid transparent;
+    z-index: 2;
+  }
+
+  .data-left-edge::after {
+    content: '';
+    position: absolute;
+    left: -7.5%;
+    top: -50%;
+    width: 0;
+    height: 0;
+    border-top: 50% solid transparent;
+    border-bottom: 50% solid transparent;
+    border-right: 7.5% solid #6b7280;
+  }
+
+  .data-right-edge {
+    position: absolute;
+    right: 7.5%;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 50% solid #f3f4f6;
+    border-bottom: 50% solid #f3f4f6;
+    border-right: 7.5% solid transparent;
+    z-index: 2;
+  }
+
+  .data-right-edge::after {
+    content: '';
+    position: absolute;
+    right: -7.5%;
+    top: -50%;
+    width: 0;
+    height: 0;
+    border-top: 50% solid transparent;
+    border-bottom: 50% solid transparent;
+    border-left: 7.5% solid #6b7280;
   }
 
   .data-value {
-    font-size: 10px;
+    color: #1f2937;
+    font-size: 12px;
     font-weight: 500;
-    color: #374151;
+    font-family: 'Arial', sans-serif;
+    z-index: 3;
+    position: relative;
+    user-select: none;
+    pointer-events: none;
     text-align: center;
-    max-width: 90%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1;
   }
+
+
 
   /* X pattern for unknown/undefined */
   .x-pattern {
-    position: relative;
-    width: 80%;
+    position: absolute;
+    width: 100%;
     height: 60%;
+    top: var(--signal-line-y);
+    left: 0;
+    transform: translateY(-50%);
+    background-image: 
+      radial-gradient(circle at 25% 25%, #9ca3af 0.5px, transparent 0.5px),
+      radial-gradient(circle at 75% 25%, #9ca3af 0.5px, transparent 0.5px),
+      radial-gradient(circle at 25% 75%, #9ca3af 0.5px, transparent 0.5px),
+      radial-gradient(circle at 75% 75%, #9ca3af 0.5px, transparent 0.5px);
+    background-size: 6px 6px;
+    opacity: 0.6;
   }
 
-  .x-line-1,
-  .x-line-2 {
+  .x-top-border, .x-bottom-border {
     position: absolute;
     width: 100%;
     height: 2px;
-    background-color: #ef4444;
-    top: 50%;
+    background-color: #2563eb;
     left: 0;
   }
 
-  .x-line-1 {
-    transform: translateY(-50%) rotate(45deg);
+  .x-top-border {
+    top: 0;
   }
 
-  .x-line-2 {
-    transform: translateY(-50%) rotate(-45deg);
+  .x-bottom-border {
+    bottom: 0;
   }
 
   /* Z-state (high impedance) */
   .z-line {
     position: absolute;
     width: 100%;
-    height: 2px;
-    background: repeating-linear-gradient(
-      to right,
-      #f59e0b,
-      #f59e0b 4px,
-      transparent 4px,
-      transparent 8px
-    );
-    top: 50%;
+    height: 60%;
+    top: var(--signal-line-y);
     left: 0;
+    transform: translateY(-50%);
+    background-image: 
+      repeating-linear-gradient(
+        90deg,
+        transparent 0px,
+        transparent 4px,
+        #f59e0b 4px,
+        #f59e0b 6px
+      );
+    opacity: 0.8;
+  }
+
+  .z-top-border, .z-bottom-border {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background-color: #2563eb;
+    left: 0;
+  }
+
+  .z-top-border {
+    top: 0;
+  }
+
+  .z-bottom-border {
+    bottom: 0;
   }
 
   /* Gap indicators */
