@@ -12,6 +12,8 @@
   export let hscale: number = 1;
   export let signalIndex: number;
   export let isSelected: boolean = false;
+  export let hasLeftTransition: boolean = false;
+  export let hasRightTransition: boolean = false;
 
   const dispatch = createEventDispatcher<{
     cyclechange: { cycleIndex: number; newChar: string };
@@ -89,8 +91,15 @@
   }
 
   $: cycleType = getCycleType();
-  $: cycleWidth = (40 - 8) * hscale; // Subtract transition width
+  $: cycleWidth = 40 * hscale; // Use full cycle width like WaveDrom
   $: signalLinePixelPos = getSignalLinePixelPosition();
+  
+  // Calculate signal line positioning based on adjacent transitions
+  $: transitionWidth = 8 * hscale;
+  $: leftOffset = hasLeftTransition ? transitionWidth / 2 : 0;
+  $: rightOffset = hasRightTransition ? transitionWidth / 2 : 0;
+  $: signalLineWidth = cycleWidth - leftOffset - rightOffset;
+  $: signalLineLeft = leftOffset;
 </script>
 
 <div 
@@ -100,6 +109,8 @@
   style="
     width: {cycleWidth}px;
     --signal-line-y: {signalLinePixelPos}px;
+    --signal-line-width: {signalLineWidth}px;
+    --signal-line-left: {signalLineLeft}px;
   "
   data-cycle-index={cycle.cycleIndex}
   on:click={handleClick}
@@ -132,17 +143,29 @@
       </div>
     {:else if cycleType === 'clock'}
       {#if cycle.effectiveChar === 'p' || cycle.effectiveChar === 'P'}
-        <!-- Positive clock -->
-        <svg width="100%" height="100%" viewBox="0 0 32 40" preserveAspectRatio="none">
-          <polyline points="0,32 8,32 8,8 24,8 24,32 32,32" fill="none" stroke="#10b981" stroke-width="2"/>
-        </svg>
+        <!-- Positive clock - starts low, rising edge at beginning -->
+        <div class="clock-shape positive-clock">
+          <div class="clock-rising-edge"></div>
+          <div class="clock-high-segment"></div>
+          <div class="clock-falling-edge"></div>
+          <div class="clock-low-segment"></div>
+          {#if cycle.effectiveChar === 'P'}
+            <div class="working-edge-marker rising"></div>
+          {/if}
+        </div>
       {:else if cycle.effectiveChar === 'n' || cycle.effectiveChar === 'N'}
-        <!-- Negative clock -->
-        <svg width="100%" height="100%" viewBox="0 0 32 40" preserveAspectRatio="none">
-          <polyline points="0,8 8,8 8,32 24,32 24,8 32,8" fill="none" stroke="#10b981" stroke-width="2"/>
-        </svg>
+        <!-- Negative clock - starts high, falling edge at beginning -->
+        <div class="clock-shape negative-clock">
+          <div class="clock-falling-edge"></div>
+          <div class="clock-low-segment"></div>
+          <div class="clock-rising-edge"></div>
+          <div class="clock-high-segment"></div>
+          {#if cycle.effectiveChar === 'N'}
+            <div class="working-edge-marker falling"></div>
+          {/if}
+        </div>
       {:else}
-        <!-- Other clock states -->
+        <!-- Other clock states (h, H, l, L) - static high or low -->
         <div class="signal-line {cycle.effectiveChar === 'h' || cycle.effectiveChar === 'H' ? 'high-line' : 'low-line'}"></div>
       {/if}
     {:else if cycleType === 'gap'}
@@ -169,6 +192,13 @@
     transition: all 0.15s ease;
     user-select: none;
     flex-shrink: 0;
+    background-color: transparent; /* Allow grid lines to show through */
+    /* Optimize for smooth scaling */
+    will-change: transform;
+    transform: translateZ(0); /* Force hardware acceleration */
+    /* Ensure sub-pixel precision */
+    backface-visibility: hidden;
+    -webkit-font-smoothing: subpixel-antialiased;
   }
 
   .signal-cycle.interactive {
@@ -197,10 +227,10 @@
   /* Signal lines for binary signals */
   .signal-line {
     position: absolute;
-    width: 100%;
+    width: var(--signal-line-width);
     height: 2px;
     background-color: #2563eb;
-    left: 0;
+    left: var(--signal-line-left);
     top: var(--signal-line-y);
     transform: translateY(-50%);
   }
@@ -325,8 +355,6 @@
     line-height: 1;
   }
 
-
-
   /* X pattern for unknown/undefined */
   .x-pattern {
     position: absolute;
@@ -393,6 +421,89 @@
 
   .z-bottom-border {
     bottom: 0;
+  }
+
+  /* Clock shapes */
+  .clock-shape {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  .clock-low-segment, .clock-high-segment {
+    position: absolute;
+    width: calc(var(--signal-line-width) / 2);
+    height: 2px;
+    background-color: #10b981;
+  }
+
+  .positive-clock .clock-high-segment {
+    left: var(--signal-line-left);
+    top: 20%;
+    transform: translateY(-50%);
+  }
+
+  .positive-clock .clock-low-segment {
+    left: calc(var(--signal-line-left) + var(--signal-line-width) / 2);
+    top: 80%;
+    transform: translateY(-50%);
+  }
+
+  .negative-clock .clock-high-segment {
+    left: calc(var(--signal-line-left) + var(--signal-line-width) / 2);
+    top: 20%;
+    transform: translateY(-50%);
+  }
+
+  .negative-clock .clock-low-segment {
+    left: var(--signal-line-left);
+    top: 80%;
+    transform: translateY(-50%);
+  }
+
+  .clock-rising-edge, .clock-falling-edge {
+    position: absolute;
+    width: 2px;
+    height: 60%;
+    background-color: #10b981;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .positive-clock .clock-rising-edge {
+    left: var(--signal-line-left);
+  }
+
+  .positive-clock .clock-falling-edge {
+    left: calc(var(--signal-line-left) + var(--signal-line-width) / 2);
+  }
+
+  .negative-clock .clock-falling-edge {
+    left: var(--signal-line-left);
+  }
+
+  .negative-clock .clock-rising-edge {
+    left: calc(var(--signal-line-left) + var(--signal-line-width) / 2);
+  }
+
+  .working-edge-marker {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #10b981;
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .working-edge-marker.rising {
+    left: -3px;
+  }
+
+  .working-edge-marker.falling {
+    left: -3px;
   }
 
   /* Gap indicators */

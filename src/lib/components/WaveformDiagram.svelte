@@ -442,6 +442,7 @@
       z-index: 2;
       min-width: calc(var(--name-width) + var(--cycle-width) * 16);
       width: max-content;
+      margin-top: 24px; /* Offset by time scale height */
     }
   
     .signal-spacer {

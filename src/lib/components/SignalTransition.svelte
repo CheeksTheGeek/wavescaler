@@ -22,6 +22,63 @@
     transitiondrag: { fromCycleIndex: number; toCycleIndex: number; deltaY: number };
   }>();
 
+  // Use the same positioning logic as SignalCycle to ensure perfect alignment
+  $: fullCycleWidth = 40 * hscale;
+  $: transitionWidth = 8 * hscale;
+  $: halfTransitionWidth = transitionWidth / 2;
+  
+  // Calculate signal line positions for perfect alignment
+  function getSignalLinePosition(cycle: typeof fromCycle): { y: number; left: number; width: number } {
+    // Get visual representation for the cycle (same logic as SignalCycle)
+    function getCycleType(c: typeof cycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
+      const char = c.effectiveChar;
+      
+      if (char === '1' || char === 'h' || char === 'H' || char === 'P') return 'high';
+      if (char === '0' || char === 'l' || char === 'L' || char === 'N') return 'low';
+      if (char === 'x') return 'x';
+      if (char === 'z') return 'z';
+      if (['=', '2', '3', '4', '5'].includes(char)) return 'data';
+      if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(char)) return 'clock';
+      if (char === '|') return 'gap';
+      if (char === '') return 'empty';
+      return 'unknown';
+    }
+
+    const type = getCycleType(cycle);
+    
+    // Get Y position (same logic as SignalCycle.getSignalLinePosition)
+    let yPercent: number;
+    switch (type) {
+      case 'high':
+        yPercent = 20; // 20% from top
+        break;
+      case 'low':
+        yPercent = 80; // 80% from top (20% from bottom)
+        break;
+      case 'data':
+      case 'x':
+      case 'z':
+      case 'clock':
+      default:
+        yPercent = 50; // Middle
+        break;
+    }
+    
+    const cycleHeight = 40;
+    const y = (yPercent / 100) * cycleHeight;
+    
+    // Calculate signal line width and position (same logic as SignalCycle)
+    // For transitions, we need to know the signal line extends to the edge
+    const rightOffset = halfTransitionWidth; // Signal line ends halfTransitionWidth from cycle edge
+    const signalLineWidth = fullCycleWidth - rightOffset;
+    
+    return {
+      y,
+      left: 0, // Signal line starts at cycle beginning
+      width: signalLineWidth
+    };
+  }
+
   // Get visual representation for the cycle
   function getCycleType(cycle: typeof fromCycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
     const char = cycle.effectiveChar;
@@ -87,26 +144,6 @@
     return fromType === 'data' || toType === 'data';
   }
 
-  // Get CSS coordinate values for each signal type
-  function getSignalCSSCoordinates(cycle: typeof fromCycle) {
-    const type = getCycleType(cycle);
-    
-    switch (type) {
-      case 'high':
-        return { percent: 20, cssVar: '--signal-high' };
-      case 'low':
-        return { percent: 80, cssVar: '--signal-low' };
-      case 'data':
-        // Data signals connect at their center line (middle of hexagon)
-        return { percent: 50, cssVar: '--signal-middle', isData: true };
-      case 'x':
-      case 'z':
-      case 'clock':
-      default:
-        return { percent: 50, cssVar: '--signal-middle' };
-    }
-  }
-
   function handleClick(event: MouseEvent) {
     dispatch('transitionclick', {
       fromCycleIndex: fromCycle.cycleIndex,
@@ -120,16 +157,17 @@
   }
 
   $: transitionType = getTransitionType();
-  $: transitionWidth = 8 * hscale;
-  $: fromCoords = getSignalCSSCoordinates(fromCycle);
-  $: toCoords = getSignalCSSCoordinates(toCycle);
+  $: fromSignalPos = getSignalLinePosition(fromCycle);
+  $: toSignalPos = getSignalLinePosition(toCycle);
   $: isCleanCross = needsCleanCrossTransition();
   $: isDataTransition = hasDataTransition();
   
-  // Calculate transition geometry with consistent units
-  $: cycleHeight = 40;
-  $: fromY = (fromCoords.percent / 100) * cycleHeight;
-  $: toY = (toCoords.percent / 100) * cycleHeight;
+  // Calculate transition geometry using exact signal line endpoints
+  $: fromX = fromSignalPos.left + fromSignalPos.width; // End of from signal line
+  $: toX = 0; // Start of to signal line (relative to transition container)
+  $: fromY = fromSignalPos.y;
+  $: toY = toSignalPos.y;
+  $: deltaX = toX - fromX;
   $: deltaY = toY - fromY;
   
   // For cross transitions at the same Y level, force a visual separation
@@ -150,7 +188,7 @@
       --line-angle: {lineAngle}deg;
       --line-length: {lineLength}px;
       --is-clean-cross: {isCleanCross ? 1 : 0};
-      --cycle-height: {cycleHeight}px;
+      --cycle-height: {40}px;
     "
     on:click={handleClick}
     on:mousedown={handleMouseDown}
@@ -184,8 +222,9 @@
     position: relative;
     cursor: pointer;
     transition: background-color 0.15s ease;
-    /* Optimize for smooth rendering */
-    will-change: auto;
+    /* Optimize for smooth rendering and scaling */
+    will-change: transform;
+    transform: translateZ(0); /* Force hardware acceleration */
     contain: layout style;
   }
 

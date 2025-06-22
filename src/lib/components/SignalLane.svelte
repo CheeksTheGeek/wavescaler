@@ -3,6 +3,7 @@
     import { createEventDispatcher } from 'svelte';
     import SignalCycle from './SignalCycle.svelte';
     import SignalTransition from './SignalTransition.svelte';
+    import { onDestroy } from 'svelte';
   
         export let signal: WaveSignal;
   export let signalIndex: number;
@@ -39,6 +40,10 @@
     let editingSpan: number | null = null;
     let signalCyclesContainer: HTMLElement;
     let recalculateTimeout: number;
+    let transitionPositions: Array<{ left: number; width: number }> = [];
+    let resizeObserver: ResizeObserver | null = null;
+    let animationFrameId: number | null = null;
+    let isUpdating = false;
   
     // Process wave string into individual cycles
     $: {
@@ -61,7 +66,7 @@
         }
   
         // Determine if this cycle is interactive (can be clicked/dragged)
-        const isInteractive = ['0', '1', ''].includes(effectiveChar) || effectiveChar === '';
+        const isInteractive = ['0', '1', 'x', 'z', ''].includes(effectiveChar) || effectiveChar === '';
   
         // Handle data values for data signals
         let dataValue: string | undefined;
@@ -129,8 +134,45 @@
       
       recalculateTimeout = setTimeout(() => {
         calculateSpanPositions();
+        smoothUpdateTransitions();
       }, 100); // Debounce for 100ms
     }
+  
+    // Recalculate transition positions when cycles change
+    $: if (cycles.length > 0 && signalCyclesContainer) {
+      setTimeout(() => {
+        smoothUpdateTransitions();
+      }, 0);
+    }
+  
+    // Set up resize observer for continuous positioning updates
+    $: if (signalCyclesContainer && typeof ResizeObserver !== 'undefined') {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      
+      resizeObserver = new ResizeObserver(() => {
+        smoothUpdateTransitions();
+      });
+      
+      resizeObserver.observe(signalCyclesContainer);
+      
+      // Also observe individual cycles for more granular updates
+      const cycleElements = signalCyclesContainer.querySelectorAll('[data-cycle-index]');
+      cycleElements.forEach(element => {
+        resizeObserver?.observe(element as HTMLElement);
+      });
+    }
+  
+    // Cleanup resize observer and animation frames
+    onDestroy(() => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    });
   
     function calculateSpanPositions() {
       if (!signalCyclesContainer) return;
@@ -318,6 +360,84 @@
         editingSpan = null;
       }
     }
+
+    function needsTransition(fromCycle: ProcessedCycle, toCycle: ProcessedCycle): boolean {
+      // Get visual representation for the cycle (same logic as SignalTransition)
+      function getCycleType(cycle: ProcessedCycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
+        const char = cycle.effectiveChar;
+        
+        if (char === '1' || char === 'h' || char === 'H' || char === 'P') return 'high';
+        if (char === '0' || char === 'l' || char === 'L' || char === 'N') return 'low';
+        if (char === 'x') return 'x';
+        if (char === 'z') return 'z';
+        if (['=', '2', '3', '4', '5'].includes(char)) return 'data';
+        if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(char)) return 'clock';
+        if (char === '|') return 'gap';
+        if (char === '') return 'empty';
+        return 'unknown';
+      }
+
+      const fromType = getCycleType(fromCycle);
+      const toType = getCycleType(toCycle);
+      
+      // No transition if from/to empty
+      if (fromType === 'empty' || toType === 'empty') {
+        return false;
+      }
+      
+      // For data signals, check if the actual data values are different
+      if (fromType === 'data' && toType === 'data') {
+        return fromCycle.dataValue !== toCycle.dataValue;
+      }
+      
+      // Transition needed if different types
+      return fromType !== toType;
+    }
+
+    function calculateTransitionPositions() {
+      if (!signalCyclesContainer) return;
+      
+      const newTransitionPositions: Array<{ left: number; width: number }> = [];
+      const transitionWidth = 8 * hscale;
+      
+      // Measure actual DOM positions of cycles
+      for (let i = 0; i < cycles.length - 1; i++) {
+        const currentCycle = signalCyclesContainer.querySelector(`[data-cycle-index="${i}"]`) as HTMLElement;
+        const nextCycle = signalCyclesContainer.querySelector(`[data-cycle-index="${i + 1}"]`) as HTMLElement;
+        
+        if (currentCycle && nextCycle) {
+          const containerRect = signalCyclesContainer.getBoundingClientRect();
+          const currentRect = currentCycle.getBoundingClientRect();
+          const nextRect = nextCycle.getBoundingClientRect();
+          
+          // Calculate transition position to be exactly between cycles
+          const currentRight = currentRect.right - containerRect.left;
+          const nextLeft = nextRect.left - containerRect.left;
+          const transitionLeft = currentRight - transitionWidth / 2;
+          
+          newTransitionPositions.push({
+            left: transitionLeft,
+            width: transitionWidth
+          });
+        }
+      }
+      
+      transitionPositions = newTransitionPositions;
+    }
+    
+    function smoothUpdateTransitions() {
+      if (isUpdating) return;
+      isUpdating = true;
+      
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      
+      animationFrameId = requestAnimationFrame(() => {
+        calculateTransitionPositions();
+        isUpdating = false;
+      });
+    }
   </script>
   
   <div class="signal-lane" style="--hscale: {hscale}; --cycle-height: 40px;">
@@ -346,7 +466,10 @@
     <div class="signal-cycles" bind:this={signalCyclesContainer}>
       {#each cycles as cycle, index (cycle.cycleIndex)}
         {@const isSelected = isCellSelected(signalIndex, cycle.cycleIndex)}
+        {@const prevCycle = index > 0 ? cycles[index - 1] : null}
         {@const nextCycle = index < cycles.length - 1 ? cycles[index + 1] : null}
+        {@const hasLeftTransition = prevCycle ? needsTransition(prevCycle, cycle) : false}
+        {@const hasRightTransition = nextCycle ? needsTransition(cycle, nextCycle) : false}
         
         <!-- Render the cycle -->
         <SignalCycle
@@ -354,20 +477,27 @@
           {hscale}
           {signalIndex}
           {isSelected}
+          {hasLeftTransition}
+          {hasRightTransition}
           on:cyclechange={(e) => handleCycleChange(e.detail.cycleIndex, e.detail.newChar)}
           on:bulkcyclechange={(e) => handleBulkCycleChange(e.detail.startIndex, e.detail.endIndex, e.detail.newChar)}
           on:cellselection={(e) => dispatch('cellselection', e.detail)}
           on:rightclick={(e) => dispatch('rightclick', e.detail)}
         />
-        
-        <!-- Render transition to next cycle (if there is one) -->
-        {#if nextCycle}
+      {/each}
+      
+      <!-- Render all transitions as absolute positioned overlays -->
+      {#each cycles as cycle, index (cycle.cycleIndex)}
+        {@const nextCycle = index < cycles.length - 1 ? cycles[index + 1] : null}
+        {#if nextCycle && transitionPositions[index]}
+          <div class="transition-overlay" style="left: {transitionPositions[index].left}px; width: {transitionPositions[index].width}px;">
           <SignalTransition 
             fromCycle={cycle}
             toCycle={nextCycle}
             {hscale}
             on:transitionclick={handleTransitionClick}
           />
+          </div>
         {/if}
       {/each}
       
@@ -403,7 +533,7 @@
       display: flex;
       height: var(--lane-height);
       border-bottom: 1px solid var(--border-color);
-      background-color: var(--background-color);
+      background-color: transparent; /* Allow grid lines to show through */
     }
   
     .signal-name-container {
@@ -414,6 +544,7 @@
       background-color: #f8fafc;
       border-right: 1px solid var(--border-color);
       flex-shrink: 0;
+      z-index: 2; /* Above grid lines */
     }
   
     .signal-name-button {
@@ -454,6 +585,9 @@
       flex: 1;
       align-items: center;
       position: relative;
+      /* Optimize for smooth scaling */
+      will-change: transform;
+      transform: translateZ(0); /* Force hardware acceleration */
     }
 
     .data-text-overlay {
@@ -510,6 +644,20 @@
     .data-text-input:focus {
       outline: none;
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+
+    .transition-overlay {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      z-index: 5; /* Above cycles but below text overlays */
+      pointer-events: auto;
+      /* Optimize for smooth scaling */
+      will-change: transform;
+      transform: translateZ(0); /* Force hardware acceleration */
+      /* Ensure sub-pixel precision */
+      backface-visibility: hidden;
+      -webkit-font-smoothing: subpixel-antialiased;
     }
   </style>
   

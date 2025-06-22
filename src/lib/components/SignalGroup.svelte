@@ -23,8 +23,36 @@
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
     }>();
   
+    // Define 20 major colors for round-robin selection
+    const BACKGROUND_COLORS = [
+      'rgba(139, 92, 246, 0.1)',   // Purple
+      'rgba(59, 130, 246, 0.1)',   // Blue
+      'rgba(16, 185, 129, 0.1)',   // Green
+      'rgba(245, 158, 11, 0.1)',   // Yellow
+      'rgba(239, 68, 68, 0.1)',    // Red
+      'rgba(236, 72, 153, 0.1)',   // Pink
+      'rgba(20, 184, 166, 0.1)',   // Teal
+      'rgba(168, 85, 247, 0.1)',   // Violet
+      'rgba(34, 197, 94, 0.1)',    // Emerald
+      'rgba(249, 115, 22, 0.1)',   // Orange
+      'rgba(156, 163, 175, 0.1)',  // Gray
+      'rgba(6, 182, 212, 0.1)',    // Cyan
+      'rgba(132, 204, 22, 0.1)',   // Lime
+      'rgba(217, 119, 6, 0.1)',    // Amber
+      'rgba(190, 18, 60, 0.1)',    // Rose
+      'rgba(147, 51, 234, 0.1)',   // Purple variant
+      'rgba(37, 99, 235, 0.1)',    // Blue variant
+      'rgba(5, 150, 105, 0.1)',    // Green variant
+      'rgba(202, 138, 4, 0.1)',    // Yellow variant
+      'rgba(220, 38, 127, 0.1)'    // Pink variant
+    ];
+
       $: groupName = group[0];
   $: groupItems = group.slice(1) as SignalItem[];
+  
+  // Deterministic color selection based on group name and parent index
+  $: groupColorIndex = (groupName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + parentIndex) % BACKGROUND_COLORS.length;
+  $: groupBackgroundColor = BACKGROUND_COLORS[groupColorIndex];
 
     let isCollapsed = false;
     let isEditingName = false;
@@ -175,7 +203,7 @@
 
     <!-- Group Content -->
     {#if !isCollapsed}
-      <div class="group-content">
+      <div class="group-content" style="--group-bg-color: {groupBackgroundColor}">
         {#each groupItems as item, index (index)}
           {@const itemType = getItemType(item)}
 
@@ -332,7 +360,7 @@
     }
 
     .group-content {
-      background-color: var(--background-color);
+      background-color: var(--group-bg-color);
     }
 
     .group-spacer {
