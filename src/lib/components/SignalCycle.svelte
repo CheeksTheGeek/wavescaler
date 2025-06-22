@@ -246,18 +246,18 @@
   /* Data signal shapes */
   .data-shape {
     position: absolute;
-    width: 100%;
+    width: var(--signal-line-width);
     height: 70%;
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1;
     top: var(--signal-line-y);
-    left: 0;
+    left: var(--signal-line-left);
     transform: translateY(-50%);
     background-color: #f3f4f6;
-    border-top: 2px solid #6b7280;
-    border-bottom: 2px solid #6b7280;
+    border-top: 2px solid #2563eb;
+    border-bottom: 2px solid #2563eb;
   }
 
   .data-shape::before {
@@ -269,7 +269,7 @@
     height: 0;
     border-top: calc(50% + 2px) solid transparent;
     border-bottom: calc(50% + 2px) solid transparent;
-    border-right: 12% solid #6b7280;
+    border-right: 12% solid #2563eb;
   }
 
   .data-shape::after {
@@ -281,7 +281,7 @@
     height: 0;
     border-top: calc(50% + 2px) solid transparent;
     border-bottom: calc(50% + 2px) solid transparent;
-    border-left: 12% solid #6b7280;
+    border-left: 12% solid #2563eb;
   }
 
   .data-background {
@@ -358,10 +358,10 @@
   /* X pattern for unknown/undefined */
   .x-pattern {
     position: absolute;
-    width: 100%;
+    width: var(--signal-line-width);
     height: 60%;
     top: var(--signal-line-y);
-    left: 0;
+    left: var(--signal-line-left);
     transform: translateY(-50%);
     background-image: 
       radial-gradient(circle at 25% 25%, #9ca3af 0.5px, transparent 0.5px),
@@ -374,7 +374,7 @@
 
   .x-top-border, .x-bottom-border {
     position: absolute;
-    width: 100%;
+    width: var(--signal-line-width);
     height: 2px;
     background-color: #2563eb;
     left: 0;
@@ -391,10 +391,10 @@
   /* Z-state (high impedance) */
   .z-line {
     position: absolute;
-    width: 100%;
+    width: var(--signal-line-width);
     height: 60%;
     top: var(--signal-line-y);
-    left: 0;
+    left: var(--signal-line-left);
     transform: translateY(-50%);
     background-image: 
       repeating-linear-gradient(
@@ -409,7 +409,7 @@
 
   .z-top-border, .z-bottom-border {
     position: absolute;
-    width: 100%;
+    width: var(--signal-line-width);
     height: 2px;
     background-color: #2563eb;
     left: 0;
