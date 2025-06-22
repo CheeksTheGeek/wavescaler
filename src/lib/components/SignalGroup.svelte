@@ -1,121 +1,350 @@
 <script lang="ts">
     import type { WaveGroup, SignalItem, WaveSignal, WaveSpacer } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
+    import { createEventDispatcher } from 'svelte';
     // Recursive type for svelte:self, not strictly needed for TS but good for clarity
     // type SignalGroupComponent = typeof import('./SignalGroup.svelte').default;
   
-        export let group: WaveGroup;
-    export let y: number; // Starting y position for this group's own label.
-    export let nameWidth: number;
-    export let cycleWidth: number;
-    export let laneHeight: number;
-    export let hscale: number;
+            export let group: WaveGroup;
+    export let parentIndex: number;
     export let maxCycles: number;
-    export let level: number; // Nesting level
+    export let hscale: number = 1;
+    export let level: number = 0;
     export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
-  
-    const groupName = group[0];
-    const groupItems = group.slice(1) as SignalItem[];
-  
-        const nameIndent = level * 20; // Indent nested group names visually
-    const effectiveNameWidth = nameWidth - nameIndent;
+    export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+    export let signalIndexMap: Map<any, number>;
 
-    // Calculate positions for child items
-    function getChildYPosition(childIndex: number): number {
-      let childY = y + laneHeight; // Start below the group label
+    const dispatch = createEventDispatcher<{
+      signalchange: { signalIndex: number; newSignal: WaveSignal };
+      structurechange: { newWaveJson: any };
+      groupchange: { groupIndex: number; newGroup: WaveGroup };
+      cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
+      rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
+    }>();
+  
+      $: groupName = group[0];
+  $: groupItems = group.slice(1) as SignalItem[];
+
+    let isCollapsed = false;
+    let isEditingName = false;
+    let nameInput = '';
+
+    function toggleCollapse() {
+      isCollapsed = !isCollapsed;
+    }
+
+    function startEditingName() {
+      isEditingName = true;
+      nameInput = groupName;
+    }
+
+    function finishEditingName() {
+      if (nameInput.trim() && nameInput !== groupName) {
+        const newGroup: WaveGroup = [nameInput.trim(), ...groupItems];
+        dispatch('groupchange', { groupIndex: parentIndex, newGroup });
+      }
+      isEditingName = false;
+    }
+
+    function handleNameKeydown(event: KeyboardEvent) {
+      if (event.key === 'Enter') {
+        finishEditingName();
+      } else if (event.key === 'Escape') {
+        isEditingName = false;
+      }
+    }
+
+    function handleSignalChange(event: CustomEvent<{ signalIndex: number; newSignal: WaveSignal }>) {
+      // Re-dispatch the signal change event up the component tree
+      dispatch('signalchange', event.detail);
+    }
+
+    function handleNestedGroupChange(event: CustomEvent<{ groupIndex: number; newGroup: WaveGroup }>) {
+      // Update the nested group and dispatch the change
+      const newGroupItems = [...groupItems];
+      newGroupItems[event.detail.groupIndex] = event.detail.newGroup;
+      const newGroup: WaveGroup = [groupName, ...newGroupItems];
+      dispatch('groupchange', { groupIndex: parentIndex, newGroup });
+    }
+
+    function addSignalToGroup() {
+      // Generate a unique signal name within this group
+      const existingSignalNames = new Set<string>();
       
-      for (let i = 0; i < childIndex; i++) {
-        const item = groupItems[i];
-        const type = getItemType(item);
-        
-        if (type === 'signal') {
-          childY += laneHeight;
-        } else if (type === 'spacer') {
-          childY += laneHeight / 1.5;
-        } else if (type === 'group') {
-          childY += laneHeight; // For group label
-          childY += calculateGroupHeight((item as WaveGroup).slice(1) as SignalItem[]);
-        } else if (type === 'unknown') {
-          childY += laneHeight;
+      // Collect all existing signal names in this group
+      function collectSignalNames(items: SignalItem[]) {
+        for (const item of items) {
+          if (Array.isArray(item)) {
+            // It's a nested group
+            collectSignalNames(item.slice(1) as SignalItem[]);
+          } else if (item && typeof item === 'object' && 'name' in item) {
+            // It's a signal
+            existingSignalNames.add((item as WaveSignal).name);
+          }
         }
       }
       
-      return childY;
-    }
-    
-    function calculateGroupHeight(items: SignalItem[]): number {
-      let height = 0;
-      items.forEach(item => {
-        const type = getItemType(item);
-        if (type === 'signal') {
-          height += laneHeight;
-        } else if (type === 'spacer') {
-          height += laneHeight / 1.5;
-        } else if (type === 'group') {
-          height += laneHeight; // For group label itself
-          height += calculateGroupHeight((item as WaveGroup).slice(1) as SignalItem[]);
-        } else if (type === 'unknown') {
-          height += laneHeight;
+      collectSignalNames(groupItems);
+      
+      // Generate a unique name
+      const baseNames = ['sig', 'data', 'ctrl', 'addr', 'enable', 'valid', 'ready'];
+      let newSignalName = '';
+      
+      // Try base names first
+      for (const baseName of baseNames) {
+        if (!existingSignalNames.has(baseName)) {
+          newSignalName = baseName;
+          break;
         }
-      });
-      return height;
+      }
+      
+      // If all base names are taken, use numbered naming
+      if (!newSignalName) {
+        let counter = 1;
+        while (existingSignalNames.has(`sig${counter}`)) {
+          counter++;
+        }
+        newSignalName = `sig${counter}`;
+      }
+      
+      // Create the new signal
+      const newSignal: WaveSignal = {
+        name: newSignalName,
+        wave: '0..1..0.'  // Default wave pattern
+      };
+      
+      // Add the signal to the group
+      const newGroupItems = [...groupItems, newSignal];
+      const newGroup: WaveGroup = [groupName, ...newGroupItems];
+      
+      // Dispatch the change
+      dispatch('groupchange', { groupIndex: parentIndex, newGroup });
     }
+
+
   
   </script>
   
-  <g class="signal-group" transform="translate({nameIndent}, 0)">
-    <!-- Group Label -->
-    <text
-      x="5"
-      y="{y + laneHeight / 2}"
-      class="group-name"
-      dominant-baseline="middle"
-    >
-      {groupName}
-    </text>
-  
-        <!-- Render Children -->
-    {#each groupItems as item, index (index)}
-      {@const itemType = getItemType(item)}
-      {@const childComponentY = getChildYPosition(index)}
+  <div class="signal-group" style="--level: {level}">
+    <!-- Group Header -->
+    <div class="group-header">
+      <div class="group-name-container">
+              <button 
+        class="collapse-button"
+        on:click={toggleCollapse}
+        title={isCollapsed ? 'Expand group' : 'Collapse group'}
+        aria-label={isCollapsed ? 'Expand group' : 'Collapse group'}
+      >
+          <svg width="12" height="12" viewBox="0 0 12 12" class:collapsed={isCollapsed}>
+            <path d="M4 2 L8 6 L4 10" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
 
-      {#if itemType === 'signal'}
-        <SignalLane
-          signal={item as WaveSignal}
-          signalIndex={index}
-          y={childComponentY}
-          nameWidth={effectiveNameWidth}
-          {cycleWidth}
-          {laneHeight}
-          {hscale}
-          {maxCycles}
+        {#if isEditingName}
+                  <input
+          type="text"
+          class="group-name-input"
+          bind:value={nameInput}
+          on:blur={finishEditingName}
+          on:keydown={handleNameKeydown}
         />
-      {:else if itemType === 'group'}
-        <svelte:self
-          group={item as WaveGroup}
-          y={childComponentY}
-          nameWidth={nameWidth}
-          {cycleWidth}
-          {laneHeight}
-          {hscale}
-          {maxCycles}
-          level={level + 1}
-          {getItemType}
-        />
-      {:else if itemType === 'spacer'}
-        <!-- Spacer: just a visual gap -->
-      {:else if itemType === 'unknown'}
-        <text x="10" y={childComponentY + laneHeight / 2} fill="red" font-size="12">Unknown item type in group</text>
-      {/if}
-    {/each}
-  </g>
+        {:else}
+          <button 
+            class="group-name-button"
+            on:click={startEditingName}
+            title="Click to edit group name"
+          >
+            {groupName}
+          </button>
+        {/if}
+
+        <!-- Add signal button moved next to group name -->
+        <button 
+          class="add-signal-button"
+          title="Add signal to group"
+          aria-label="Add signal to group"
+          on:click|stopPropagation={addSignalToGroup}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14">
+            <path d="M7 2 L7 12 M2 7 L12 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Group Content -->
+    {#if !isCollapsed}
+      <div class="group-content">
+        {#each groupItems as item, index (index)}
+          {@const itemType = getItemType(item)}
+
+          {#if itemType === 'signal'}
+            <SignalLane
+              signal={item as WaveSignal}
+              signalIndex={signalIndexMap.get(item) ?? index}
+              {maxCycles}
+              {hscale}
+              {isCellSelected}
+              on:signalchange={handleSignalChange}
+              on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:rightclick={(e) => dispatch('rightclick', e.detail)}
+            />
+          {:else if itemType === 'group'}
+            <svelte:self
+              group={item as WaveGroup}
+              parentIndex={index}
+              {maxCycles}
+              {hscale}
+              level={level + 1}
+              {getItemType}
+              {isCellSelected}
+              {signalIndexMap}
+              on:signalchange={handleSignalChange}
+              on:groupchange={handleNestedGroupChange}
+              on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:rightclick={(e) => dispatch('rightclick', e.detail)}
+            />
+          {:else if itemType === 'spacer'}
+            <div class="group-spacer"></div>
+          {:else if itemType === 'unknown'}
+            <div class="group-unknown">
+              Unknown item type in group
+            </div>
+          {/if}
+        {/each}
+      </div>
+    {/if}
+  </div>
   
   <style>
-    .group-name {
-      font-weight: 500; /* Slightly less bold than original WaveDrom, adjust as needed */
-      fill: #1a1a1a;
-      font-family: inherit;
+    .signal-group {
+      --indent: calc(var(--level) * 20px);
+      border-left: 2px solid #e5e7eb;
+      margin-left: var(--indent);
+    }
+
+    .group-header {
+      height: var(--lane-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #f8fafc;
+      border-bottom: 1px solid var(--border-color);
+      padding-right: 8px;
+    }
+
+    .group-name-container {
+      width: var(--name-width);
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .collapse-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      color: #6b7280;
+      transition: all 0.15s ease;
+    }
+
+    .collapse-button:hover {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+
+    .collapse-button svg {
+      transition: transform 0.15s ease;
+    }
+
+    .collapse-button svg.collapsed {
+      transform: rotate(0deg); /* Right arrow when collapsed */
+    }
+
+    .collapse-button svg:not(.collapsed) {
+      transform: rotate(90deg); /* Down arrow when expanded */
+    }
+
+    .group-name-button {
+      background: none;
+      border: none;
+      font: inherit;
+      color: var(--text-color);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background-color 0.15s ease;
+      text-align: left;
+      flex: 1;
+      font-weight: 600;
       font-size: 13px;
+    }
+
+    .group-name-button:hover {
+      background-color: #e5e7eb;
+    }
+
+    .group-name-input {
+      flex: 1;
+      border: 1px solid #3b82f6;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 13px;
+      background-color: white;
+    }
+
+    .group-name-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+
+    .add-signal-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      color: #6b7280;
+      transition: all 0.15s ease;
+      margin-left: 4px;
+    }
+
+    .add-signal-button:hover {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+
+    .group-content {
+      background-color: var(--background-color);
+    }
+
+    .group-spacer {
+      height: calc(var(--lane-height) * 0.6);
+      border-bottom: 1px dashed var(--grid-color);
+    }
+
+    .group-unknown {
+      height: var(--lane-height);
+      display: flex;
+      align-items: center;
+      padding-left: 16px;
+      color: #dc2626;
+      background-color: #fef2f2;
+      border-bottom: 1px solid var(--border-color);
     }
   </style>
   

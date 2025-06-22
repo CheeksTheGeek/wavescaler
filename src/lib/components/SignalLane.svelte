@@ -1,358 +1,256 @@
 <script lang="ts">
     import type { WaveSignal } from '$lib/wavejson-types';
     import { createEventDispatcher } from 'svelte';
+    import SignalCycle from './SignalCycle.svelte';
   
-    export let signal: WaveSignal;
-    export let signalIndex: number; // Index of this signal in the parent's array, for updates
-    export let y: number; // Top y position for this lane
-    export let nameWidth: number;
-    export let cycleWidth: number;
-    export let laneHeight: number;
-    export let hscale: number;
-    export let maxCycles: number;
-  
+        export let signal: WaveSignal;
+  export let signalIndex: number;
+  export let maxCycles: number;
+  export let hscale: number = 1;
+  export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+
     const dispatch = createEventDispatcher<{
-      waveformchange: { signalIndex: number; cycleIndex: number; newChar: string };
-      wavestringchange: { signalIndex: number; newWaveString: string};
+      signalchange: { signalIndex: number; newSignal: WaveSignal };
+      cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
+      rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
     }>();
   
-    interface RenderedCycle {
-      type: 'low' | 'high' | 'x' | 'z' | 'data' | 'clk' | 'gap' | 'empty' | 'unknown';
-      char: string; // The original character from wave string ('', '.', '0', '1', 'x', etc.)
-      effectiveChar: string; // The character being rendered ('0', '1', 'x', etc. - never '.')
-      x: number;
-      pathD: string;
-      cssClass: string;
-      text?: string;
-      textX?: number;
-      textY?: number;
-      rectX?: number;
-      rectY?: number;
-      rectWidth?: number;
-      rectHeight?: number;
-      isInteractive: boolean;
+    interface ProcessedCycle {
       cycleIndex: number;
+      originalChar: string;
+      effectiveChar: string;
+      isInteractive: boolean;
+      dataValue?: string;
     }
   
-    let renderedCycles: RenderedCycle[] = [];
+    let processedCycles: ProcessedCycle[] = [];
+    let isEditingName = false;
+    let nameInput = '';
   
-    let isDragging = false;
-    let dragStartCycleIndex = -1;
-    let dragPaintChar: string | null = null; // The char ('0' or '1') to "paint" with during drag
-    let lastDragAppliedCycle = -1;
-  
-  
-    function getCycleVisuals(
-      charToRender: string, // Effective char for visuals ('0', '1', 'x', etc.)
-      originalChar: string, // From wave string (can be '.', '', '0', etc.)
-      prevEffectiveChar: string | null,
-      currentX: number,
-      laneY: number,
-      cycleW: number,
-      laneH: number
-    ): { pathD: string; cssClass: string; type: RenderedCycle['type']} {
-      const topY = laneY + laneH * 0.15;
-      const midY = laneY + laneH * 0.5;
-      const bottomY = laneY + laneH * 0.85;
-      let pathD = '';
-      let cssClass = 'wave-unknown';
-      let type: RenderedCycle['type'] = 'unknown';
-  
-      if (prevEffectiveChar && prevEffectiveChar !== charToRender) {
-          if ((prevEffectiveChar === '0' || prevEffectiveChar === 'l' || prevEffectiveChar === 'L') && (charToRender === '1' || charToRender === 'h' || charToRender === 'H' || charToRender === 'P')) pathD += `M ${currentX} ${bottomY} L ${currentX} ${topY} `;
-          else if ((prevEffectiveChar === '1' || prevEffectiveChar === 'h' || prevEffectiveChar === 'H' || prevEffectiveChar === 'P') && (charToRender === '0' || charToRender === 'l' || charToRender === 'L' || charToRender === 'N')) pathD += `M ${currentX} ${topY} L ${currentX} ${bottomY} `;
-          else if (['x','z','=','2','3','4','5','p','n'].includes(prevEffectiveChar) && (charToRender === '1' || charToRender === 'h' || charToRender === 'H' || charToRender === 'P')) pathD += `M ${currentX} ${midY} L ${currentX} ${topY} `;
-          else if (['x','z','=','2','3','4','5','p','n'].includes(prevEffectiveChar) && (charToRender === '0' || charToRender === 'l' || charToRender === 'L' || charToRender === 'N')) pathD += `M ${currentX} ${midY} L ${currentX} ${bottomY} `;
-          else if ((prevEffectiveChar === '1' || prevEffectiveChar === 'h' || prevEffectiveChar === 'H' || prevEffectiveChar === 'P') && ['x','z','=','2','3','4','5','p','n', ''].includes(charToRender)) pathD += `M ${currentX} ${topY} L ${currentX} ${midY} `; // Allow transition to mid for empty
-          else if ((prevEffectiveChar === '0' || prevEffectiveChar === 'l' || prevEffectiveChar === 'L' || prevEffectiveChar === 'N') && ['x','z','=','2','3','4','5','p','n', ''].includes(charToRender)) pathD += `M ${currentX} ${bottomY} L ${currentX} ${midY} `; // Allow transition to mid for empty
-      }
-  
-      const startPathX = currentX;
-      const endPathX = currentX + cycleW;
-  
-      switch (charToRender) {
-        case '0': pathD += `M ${startPathX} ${bottomY} H ${endPathX}`; cssClass = 'wave-low'; type = 'low'; break;
-        case '1': pathD += `M ${startPathX} ${topY} H ${endPathX}`; cssClass = 'wave-high'; type = 'high'; break;
-        case 'x':
-          const padX = cycleW * 0.1;
-          pathD += `M ${startPathX + padX} ${topY + padX*0.5} L ${endPathX - padX} ${bottomY - padX*0.5} ` +
-                   `M ${startPathX + padX} ${bottomY - padX*0.5} L ${endPathX - padX} ${topY + padX*0.5}`;
-          cssClass = 'wave-x'; type = 'x'; break;
-        case 'z': pathD += `M ${startPathX} ${midY} H ${endPathX}`; cssClass = 'wave-z'; type = 'z'; break;
-        case '=': case '2': case '3': case '4': case '5':
-          pathD += `M ${startPathX} ${midY} H ${endPathX}`; cssClass = 'wave-data-line'; type = 'data'; break;
-        case 'p': pathD += `M ${startPathX} ${midY} L ${startPathX} ${topY} L ${startPathX + cycleW/2} ${topY} L ${startPathX + cycleW/2} ${bottomY} L ${endPathX} ${bottomY} L ${endPathX} ${midY}`; cssClass = 'wave-clock wave-pclk'; type = 'clk'; break;
-        case 'P': pathD += `M ${startPathX} ${topY} L ${startPathX + cycleW/2} ${topY} L ${startPathX + cycleW/2} ${bottomY} L ${endPathX} ${bottomY}`; cssClass = 'wave-clock wave-Pclk'; type = 'clk'; break;
-        case 'n': pathD += `M ${startPathX} ${midY} L ${startPathX} ${bottomY} L ${startPathX + cycleW/2} ${bottomY} L ${startPathX + cycleW/2} ${topY} L ${endPathX} ${topY} L ${endPathX} ${midY}`; cssClass = 'wave-clock wave-nclk'; type = 'clk'; break;
-        case 'N': pathD += `M ${startPathX} ${bottomY} L ${startPathX + cycleW/2} ${bottomY} L ${startPathX + cycleW/2} ${topY} L ${endPathX} ${topY}`; cssClass = 'wave-clock wave-Nclk'; type = 'clk'; break;
-        case 'h': pathD += `M ${startPathX} ${topY} H ${endPathX}`; cssClass = 'wave-high wave-clock'; type = 'clk'; break;
-        case 'l': pathD += `M ${startPathX} ${bottomY} H ${endPathX}`; cssClass = 'wave-low wave-clock'; type = 'clk'; break;
-        case 'H': pathD += `M ${startPathX} ${topY} H ${endPathX}`; cssClass = 'wave-high wave-clock'; type = 'clk'; break;
-        case 'L': pathD += `M ${startPathX} ${bottomY} H ${endPathX}`; cssClass = 'wave-low wave-clock'; type = 'clk'; break;
-        case '|':
-          pathD = `M ${startPathX + cycleW*0.48} ${laneY + laneH*0.2} L ${startPathX + cycleW*0.48} ${laneY + laneH*0.8} ` +
-                  `M ${startPathX + cycleW*0.52} ${laneY + laneH*0.2} L ${startPathX + cycleW*0.52} ${laneY + laneH*0.8}`;
-          cssClass = 'wave-gap'; type = 'gap'; break;
-        case '': // Empty cycle (beyond wave string length)
-          pathD = `M ${startPathX} ${midY} H ${endPathX}`; // Draw a faint mid-line for empty draggable space
-          cssClass = 'wave-empty-interactive'; type = 'empty'; break;
-        default: // Unknown character
-          pathD = `M ${startPathX} ${midY} L ${endPathX} ${midY}`; cssClass = 'wave-unknown'; type = 'unknown'; break;
-      }
-      return { pathD, cssClass, type };
-    }
-  
+    // Process wave string into individual cycles
     $: {
-      const newCycles: RenderedCycle[] = [];
       const waveChars = signal.wave.split('');
+      const dataArray = Array.isArray(signal.data) 
+        ? signal.data 
+        : (typeof signal.data === 'string' ? signal.data.split(/\s+/) : []);
+      
       let dataIndex = 0;
-      const dataArray = Array.isArray(signal.data) ? signal.data : (typeof signal.data === 'string' ? signal.data.split(/\s+/) : []);
       let effectivePrevChar: string | null = null;
+      const newCycles: ProcessedCycle[] = [];
   
       for (let i = 0; i < maxCycles; i++) {
-        const currentX = nameWidth + i * cycleWidth;
         const originalChar = i < waveChars.length ? waveChars[i] : '';
         let effectiveChar = originalChar;
   
+        // Handle continuation dots
         if (originalChar === '.') {
-          effectiveChar = effectivePrevChar || ''; // Use last known state, or empty if unknown
+          effectiveChar = effectivePrevChar || '';
         }
-        
-        const visuals = getCycleVisuals(effectiveChar, originalChar, effectivePrevChar, currentX, y, cycleWidth, laneHeight);
-        
-        const isCycleInteractive = (effectiveChar === '0' || effectiveChar === '1' || effectiveChar === '');
-        
-        const cycleElement: RenderedCycle = {
-          type: visuals.type,
-          char: originalChar,
-          effectiveChar: effectiveChar,
-          x: currentX,
-          pathD: visuals.pathD,
-          cssClass: visuals.cssClass,
-          isInteractive: isCycleInteractive,
-          cycleIndex: i,
-        };
   
+        // Determine if this cycle is interactive (can be clicked/dragged)
+        const isInteractive = ['0', '1', ''].includes(effectiveChar) || effectiveChar === '';
+  
+        // Handle data values for data signals
+        let dataValue: string | undefined;
         if (['=', '2', '3', '4', '5'].includes(effectiveChar)) {
-          cycleElement.rectX = currentX;
-          cycleElement.rectY = y + laneHeight * 0.1;
-          cycleElement.rectWidth = cycleWidth;
-          cycleElement.rectHeight = laneHeight * 0.8;
-          if (['=', '2', '3', '4', '5'].includes(originalChar)) { // Only take data if original char is data type
-              cycleElement.text = dataArray[dataIndex] || '';
-              dataIndex++;
+          if (['=', '2', '3', '4', '5'].includes(originalChar)) {
+            dataValue = dataArray[dataIndex] || '';
+            dataIndex++;
           } else if (originalChar === '.' && ['=', '2', '3', '4', '5'].includes(effectivePrevChar || '')) {
-              // Find what data this dot extends
-              let k = i - 1, dataValIdx = -1;
-              while(k >= 0) {
-                  if (['=', '2', '3', '4', '5'].includes(waveChars[k])) { dataValIdx = k; break; }
-                  if (waveChars[k] !== '.') break; // Stop if not a dot or data char
-                  k--;
+            // Find the data value this dot extends
+            let k = i - 1;
+            while (k >= 0) {
+              if (['=', '2', '3', '4', '5'].includes(waveChars[k])) {
+                let count = 0;
+                for (let c = 0; c <= k; c++) {
+                  if (['=', '2', '3', '4', '5'].includes(waveChars[c])) count++;
+                }
+                dataValue = dataArray[count - 1] || '';
+                break;
               }
-              if(dataValIdx !== -1) {
-                  let count = 0;
-                  for(let c=0; c<=dataValIdx; c++) if(['=', '2', '3', '4', '5'].includes(waveChars[c])) count++;
-                  cycleElement.text = dataArray[count-1] || '';
-              } else {
-                  cycleElement.text = '...'; // Fallback for dot extending data
-              }
+              if (waveChars[k] !== '.') break;
+              k--;
+            }
           }
-          cycleElement.textX = currentX + cycleWidth / 2;
-          cycleElement.textY = y + laneHeight / 2;
-          cycleElement.cssClass = `${visuals.cssClass} wave-data-box`;
         }
-        newCycles.push(cycleElement);
+  
+        newCycles.push({
+          cycleIndex: i,
+          originalChar,
+          effectiveChar,
+          isInteractive,
+          dataValue
+        });
   
         if (originalChar !== '.') {
-          effectivePrevChar = originalChar; // This becomes the new prev for next cycle
+          effectivePrevChar = originalChar;
         }
-        // If originalChar is '.', effectivePrevChar remains what it was from the char that '.' is extending
       }
-      renderedCycles = newCycles;
+  
+      processedCycles = newCycles;
     }
   
-    function handleMouseDown(event: MouseEvent, cycle: RenderedCycle) {
-      if (!cycle.isInteractive) return;
-  
-      isDragging = true;
-      dragStartCycleIndex = cycle.cycleIndex;
-      
-      // Determine what state to "paint" with
-      if (cycle.effectiveChar === '0') dragPaintChar = '1';
-      else if (cycle.effectiveChar === '1') dragPaintChar = '0';
-      else dragPaintChar = '1'; // Default to '1' for empty or other interactive states
-  
-      lastDragAppliedCycle = cycle.cycleIndex;
-      updateWaveString(cycle.cycleIndex, dragPaintChar);
-      
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-  
-    function handleMouseMove(event: MouseEvent) {
-      if (!isDragging || dragPaintChar === null) return;
-  
-      const svgEl = (event.currentTarget as Window).document.querySelector('.signal-lane[data-signal-name="' + signal.name + '"]');
-      if (!svgEl) return;
-      const svgRect = svgEl.closest('svg')?.getBoundingClientRect();
-      if (!svgRect) return;
-      
-      const mouseXInSvg = event.clientX - svgRect.left;
-      const waveStartX = nameWidth; // Assuming nameWidth is where wave area starts
-      if (mouseXInSvg < waveStartX) return;
-  
-      const currentCycleIndex = Math.floor((mouseXInSvg - waveStartX) / cycleWidth);
-  
-      if (currentCycleIndex >= 0 && currentCycleIndex < maxCycles && currentCycleIndex !== lastDragAppliedCycle) {
-          const start = Math.min(lastDragAppliedCycle, currentCycleIndex);
-          const end = Math.max(lastDragAppliedCycle, currentCycleIndex);
-  
-          for (let i = start; i <= end; i++) {
-              if (i === dragStartCycleIndex && lastDragAppliedCycle === dragStartCycleIndex && start === end) continue;
-              
-              const targetCycle = renderedCycles[i];
-              if (targetCycle && targetCycle.isInteractive) {
-                   updateWaveString(i, dragPaintChar);
-              }
-          }
-         lastDragAppliedCycle = currentCycleIndex;
-      }
-    }
-  
-    function handleMouseUp() {
-      if (!isDragging) return;
-      isDragging = false;
-      dragStartCycleIndex = -1;
-      dragPaintChar = null;
-      lastDragAppliedCycle = -1;
-      
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-  
-      dispatch('wavestringchange', { signalIndex, newWaveString: signal.wave });
-    }
-  
-    function updateWaveString(cycleIdx: number, newChar: string) {
+    function handleCycleChange(cycleIndex: number, newChar: string) {
       let waveChars = signal.wave.split('');
-      let currentLength = waveChars.length;
-  
-      // Pad if necessary
-      if (cycleIdx >= currentLength) {
-          let padChar = '.';
-          if (currentLength > 0 && waveChars[currentLength-1] !== '.') {
-              padChar = waveChars[currentLength-1]; // Extend with the last non-dot character
-          }
-          for (let i = currentLength; i < cycleIdx; i++) {
-              waveChars.push(padChar);
-          }
+      
+      // Extend wave string if necessary
+      while (waveChars.length <= cycleIndex) {
+        waveChars.push('');
       }
       
-      if (waveChars[cycleIdx] !== newChar) {
-          waveChars[cycleIdx] = newChar;
-          signal.wave = waveChars.join(''); 
-          dispatch('waveformchange', { signalIndex, cycleIndex: cycleIdx, newChar });
-      } else if (cycleIdx >= currentLength && newChar === (waveChars[cycleIdx-1] || '.')) {
-          // If we are setting a new char at the end that is same as previous (like extending),
-          // ensure wave string is actually updated if it was shorter.
-          signal.wave = waveChars.join('');
-           // No dispatch for waveformchange as the effective state might not have changed,
-           // but wavestringchange on mouseup will send the final string.
-      }
+      // Update the character
+      waveChars[cycleIndex] = newChar;
+      
+      // Create new signal object
+      const newSignal = {
+        ...signal,
+        wave: waveChars.join('')
+      };
+      
+      dispatch('signalchange', { signalIndex, newSignal });
     }
   
-    const textY = y + laneHeight / 2;
+    function handleBulkCycleChange(startIndex: number, endIndex: number, newChar: string) {
+      let waveChars = signal.wave.split('');
+      
+      // Extend wave string if necessary
+      while (waveChars.length <= endIndex) {
+        waveChars.push('');
+      }
+      
+      // Update all characters in range
+      for (let i = startIndex; i <= endIndex; i++) {
+        waveChars[i] = newChar;
+      }
+      
+      const newSignal = {
+        ...signal,
+        wave: waveChars.join('')
+      };
+      
+      dispatch('signalchange', { signalIndex, newSignal });
+    }
+  
+    function startEditingName() {
+      isEditingName = true;
+      nameInput = signal.name;
+    }
+  
+    function finishEditingName() {
+      if (nameInput.trim() && nameInput !== signal.name) {
+        const newSignal = {
+          ...signal,
+          name: nameInput.trim()
+        };
+        dispatch('signalchange', { signalIndex, newSignal });
+      }
+      isEditingName = false;
+    }
+  
+    function handleNameKeydown(event: KeyboardEvent) {
+      if (event.key === 'Enter') {
+        finishEditingName();
+      } else if (event.key === 'Escape') {
+        isEditingName = false;
+      }
+    }
   </script>
   
-    <g class="signal-lane" data-signal-name={signal.name} on:mouseup={handleMouseUp} role="button" tabindex="0" aria-label="Signal lane for {signal.name}">
-    <text x="5" y="{textY}" class="signal-name">{signal.name}</text>
-
-    {#each renderedCycles as cycle (cycle.cycleIndex)}
-      {#if cycle.isInteractive}
-        <rect
-          class="interaction-rect"
-          x={cycle.x}
-          y={y}
-          width={cycleWidth}
-          height={laneHeight}
-          fill="transparent"
-          on:mousedown={(e) => handleMouseDown(e, cycle)}
-          style="cursor: pointer;"
-          role="button"
-          tabindex="0"
-          aria-label="Toggle signal state at cycle {cycle.cycleIndex}"
+  <div class="signal-lane">
+    <!-- Signal Name -->
+    <div class="signal-name-container">
+      {#if isEditingName}
+        <input
+          type="text"
+          class="signal-name-input"
+          bind:value={nameInput}
+          on:blur={finishEditingName}
+          on:keydown={handleNameKeydown}
         />
-      {/if}
-      <path d="{cycle.pathD}" class="wave-segment {cycle.cssClass}" />
-      {#if cycle.rectWidth}
-        <rect
-          x="{cycle.rectX}"
-          y="{cycle.rectY}"
-          width="{cycle.rectWidth}"
-          height="{cycle.rectHeight}"
-          class="data-rect {cycle.cssClass.includes('wave-data-box') ? '' : cycle.cssClass}" 
-        />
-        {#if cycle.text}
-        <text
-          x="{cycle.textX}"
-          y="{cycle.textY}"
-          class="data-text"
-          dominant-baseline="middle"
-          text-anchor="middle"
-          font-size="{Math.min(10 * hscale, cycleWidth / (cycle.text.length || 1) * 1.5, laneHeight * 0.5)}"
+      {:else}
+        <button 
+          class="signal-name-button"
+          on:click={startEditingName}
+          title="Click to edit signal name"
         >
-          {cycle.text}
-        </text>
-        {/if}
+          {signal.name}
+        </button>
       {/if}
-    {/each}
-  </g>
+    </div>
+  
+    <!-- Signal Cycles -->
+    <div class="signal-cycles">
+      {#each processedCycles as cycle (cycle.cycleIndex)}
+        {@const isSelected = isCellSelected(signalIndex, cycle.cycleIndex)}
+        <SignalCycle
+          {cycle}
+          {hscale}
+          {signalIndex}
+          {isSelected}
+          on:cyclechange={(e) => handleCycleChange(e.detail.cycleIndex, e.detail.newChar)}
+          on:bulkcyclechange={(e) => handleBulkCycleChange(e.detail.startIndex, e.detail.endIndex, e.detail.newChar)}
+          on:cellselection={(e) => dispatch('cellselection', e.detail)}
+          on:rightclick={(e) => dispatch('rightclick', e.detail)}
+        />
+      {/each}
+    </div>
+  </div>
   
   <style>
-    .signal-name {
-      fill: #222;
-      font-family: inherit;
-      user-select: none;
+    .signal-lane {
+      display: flex;
+      height: var(--lane-height);
+      border-bottom: 1px solid var(--border-color);
+      background-color: var(--background-color);
     }
-    .wave-segment {
-      stroke-width: 1.75; 
-      fill: none;
-      stroke-linecap: butt; 
-      stroke-linejoin: bevel; 
-      pointer-events: none; 
-    }
-    .wave-low { stroke: #0000FF; }
-    .wave-high { stroke: #0000FF; }
-    .wave-x { stroke: #FF0000; } 
-    .wave-z { stroke: #FFA500; } 
-    .wave-data-line { stroke: #808080; } /* Renamed from wave-data for clarity */
-    .wave-clock { stroke: #008000; } 
-    .wave-gap {
-      stroke: #BBB;
-      stroke-dasharray: 2, 2;
-      stroke-width: 1;
-    }
-    .wave-unknown { stroke: #CCC; }
-    .wave-empty-interactive { /* For empty but draggable slots */
-      stroke: #DDD; /* Faint line to show draggable area */
-      stroke-dasharray: 1, 3;
-    }
-    .wave-empty { stroke: none; } /* For non-interactive empty (if any) */
   
+    .signal-name-container {
+      width: var(--name-width);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      background-color: #f8fafc;
+      border-right: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
   
-    .data-rect {
-      fill: #f0f0f8; 
-      stroke: #555;
-      stroke-width: 0.5;
-      pointer-events: none;
+    .signal-name-button {
+      background: none;
+      border: none;
+      font: inherit;
+      color: var(--text-color);
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background-color 0.15s ease;
+      text-align: left;
+      width: 100%;
+      font-weight: 500;
     }
-    .data-text {
-      fill: #111;
-      font-family: inherit;
-      pointer-events: none;
-      user-select: none;
+  
+    .signal-name-button:hover {
+      background-color: #e5e7eb;
     }
-    .interaction-rect:hover {
-      fill: rgba(0,0,0,0.05); /* Visual feedback on hover */
+  
+    .signal-name-input {
+      width: 100%;
+      border: 1px solid #3b82f6;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font: inherit;
+      font-weight: 500;
+      background-color: white;
+    }
+  
+    .signal-name-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    }
+  
+    .signal-cycles {
+      display: flex;
+      flex: 1;
+      align-items: center;
     }
   </style>
   

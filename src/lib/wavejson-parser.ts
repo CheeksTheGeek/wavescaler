@@ -16,10 +16,8 @@ export interface ParseResult {
 /**
  * Parses a WaveJSON string into a WaveJson object.
  *
- * This initial version performs basic JSON parsing.
- * For robust validation against the WaveJson types, a schema validation
- * library (e.g., Zod, io-ts, Ajv) or manual type guards would be beneficial
- * for production use.
+ * This version handles both strict JSON and the more flexible WaveDrom format
+ * which may have unquoted keys and JavaScript-style object literals.
  *
  * @param jsonString The WaveJSON string to parse.
  * @returns A ParseResult object containing the parsed data or an error message.
@@ -30,7 +28,18 @@ export function parseWaveJson(jsonString: string): ParseResult {
   }
 
   try {
-    const parsedObject = JSON.parse(jsonString);
+    let normalizedJson = jsonString.trim();
+    
+    // Handle JavaScript-style object literal (common in WaveDrom examples)
+    if (!normalizedJson.startsWith('{') && !normalizedJson.startsWith('[')) {
+      // If it doesn't start with { or [, try wrapping it
+      normalizedJson = `{${normalizedJson}}`;
+    }
+    
+    // Try to normalize JavaScript-style syntax to proper JSON
+    normalizedJson = normalizeToJson(normalizedJson);
+    
+    const parsedObject = JSON.parse(normalizedJson);
 
     // Basic structural check: 'signal' array must exist.
     if (!parsedObject || typeof parsedObject !== 'object' || !Array.isArray(parsedObject.signal)) {
@@ -40,9 +49,16 @@ export function parseWaveJson(jsonString: string): ParseResult {
       };
     }
     
-    // At this point, we assume the object largely conforms to WaveJson.
-    // More detailed validation could be added here or by using a schema validator.
-    // For example, checking types of 'name' and 'wave' in signal objects.
+    // Validate basic signal structure
+    for (let i = 0; i < parsedObject.signal.length; i++) {
+      const item = parsedObject.signal[i];
+      if (item && typeof item === 'object' && !Array.isArray(item)) {
+        // It's a signal object
+        if (Object.keys(item).length > 0 && (!item.name || !item.wave)) {
+          console.warn(`Signal at index ${i} missing required 'name' or 'wave' property`);
+        }
+      }
+    }
 
     return { success: true, data: parsedObject as WaveJson };
   } catch (e) {
@@ -51,6 +67,25 @@ export function parseWaveJson(jsonString: string): ParseResult {
     }
     return { success: false, error: `An unexpected error occurred during parsing: ${(e as Error).message}` };
   }
+}
+
+/**
+ * Normalize JavaScript-style object literals to proper JSON
+ */
+function normalizeToJson(str: string): string {
+  // Remove JavaScript comments
+  str = str.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  
+  // Add quotes to unquoted keys
+  str = str.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+  
+  // Handle single quotes to double quotes
+  str = str.replace(/'/g, '"');
+  
+  // Handle trailing commas
+  str = str.replace(/,(\s*[}\]])/g, '$1');
+  
+  return str;
 }
 
 /**

@@ -1,48 +1,218 @@
 <script lang="ts">
-    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, WaveSpacer, JsonMl } from '$lib/wavejson-types';
+    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, WaveSpacer } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
     import SignalGroup from './SignalGroup.svelte';
+    import WaveformGrid from './WaveformGrid.svelte';
+    import CycleContextMenu from './CycleContextMenu.svelte';
+    import { createEventDispatcher } from 'svelte';
   
-    export let waveJson: WaveJson;
+      export let waveJson: WaveJson;
+  export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+
+  const dispatch = createEventDispatcher<{
+    signalchange: { signalIndex: number; newSignal: WaveSignal };
+    structurechange: { newWaveJson: WaveJson };
+    cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
+    cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
+  }>();
+
+  // Context menu state
+  let contextMenuVisible = false;
+  let contextMenuX = 0;
+  let contextMenuY = 0;
+  let contextMenuSignalName = '';
+  let contextMenuSignalIndex = 0;
+  let contextMenuCycleIndex = 0;
+  let contextMenuCurrentValue = '';
   
-    // Helper to differentiate SignalItem types for dynamic component rendering
+    // Helper to differentiate SignalItem types
     function getItemType(item: SignalItem): 'signal' | 'group' | 'spacer' | 'unknown' {
       if (!item || typeof item !== 'object') return 'unknown';
-      if (Object.keys(item).length === 0 && !Array.isArray(item)) return 'spacer'; // Empty object for spacer
-      if (Array.isArray(item)) return 'group'; // Array for group
-      if ('name' in item && 'wave' in item) return 'signal'; // Object with name and wave for signal
+      if (Object.keys(item).length === 0 && !Array.isArray(item)) return 'spacer';
+      if (Array.isArray(item)) return 'group';
+      if ('name' in item && 'wave' in item) return 'signal';
       return 'unknown';
     }
   
-    // --- Configuration & Calculations ---
-    const config = waveJson.config || {};
-    const hscale = config.hscale ?? 1;
+    // Configuration - make reactive
+    $: config = waveJson.config || {};
+    $: hscale = config.hscale ?? 1;
     const laneHeight = 20; // Height of a single signal lane (can be part of config later)
     const nameWidth = 150; // Width allocated for signal/group names
     const wavePadding = 5; // Padding
-    const cycleWidth = 20 * hscale; // Width of a single cycle char
+    $: cycleWidth = 20 * hscale; // Width of a single cycle char
   
     let maxCycles = 0;
   
-    function findMaxCycles(items: SignalItem[]): void {
+    function findMaxCycles(items: SignalItem[]): number {
+      let cycles = 0;
       for (const item of items) {
         const type = getItemType(item);
         if (type === 'signal') {
-          maxCycles = Math.max(maxCycles, (item as WaveSignal).wave.length);
+          cycles = Math.max(cycles, (item as WaveSignal).wave.length);
         } else if (type === 'group') {
-          findMaxCycles((item as WaveGroup).slice(1) as SignalItem[]);
+          cycles = Math.max(cycles, findMaxCycles((item as WaveGroup).slice(1) as SignalItem[]));
         }
       }
+      return cycles;
     }
-    findMaxCycles(waveJson.signal);
+    
+    // Make maxCycles reactive
+    $: {
+      maxCycles = findMaxCycles(waveJson.signal);
+      // Ensure minimum cycles for interaction
+      maxCycles = Math.max(maxCycles, 16);
+    }
+
+    // Create signal index map reactively
+    $: signalIndexMap = createSignalIndexMap(waveJson.signal);
   
+    function handleSignalChange(event: CustomEvent<{ signalIndex: number; newSignal: WaveSignal }>) {
+      const { signalIndex, newSignal } = event.detail;
+      
+      // Update the signal in our waveJson
+      if (waveJson.signal[signalIndex] && getItemType(waveJson.signal[signalIndex]) === 'signal') {
+        waveJson.signal[signalIndex] = newSignal;
+        dispatch('signalchange', event.detail);
+      }
+    }
   
-    const totalWaveformWidth = maxCycles * cycleWidth;
-    const svgWidth = nameWidth + totalWaveformWidth + wavePadding * 2;
+    function handleStructureChange(event: CustomEvent<{ newWaveJson: WaveJson }>) {
+      waveJson = event.detail.newWaveJson;
+      dispatch('structurechange', event.detail);
+    }
+
+    function handleGroupChange(event: CustomEvent<{ groupIndex: number; newGroup: WaveGroup }>) {
+      const { groupIndex, newGroup } = event.detail;
+      
+      // Update the group in our waveJson
+      if (waveJson.signal[groupIndex] && Array.isArray(waveJson.signal[groupIndex])) {
+        // Create a new signal array to trigger reactivity
+        const newSignals = [...waveJson.signal];
+        newSignals[groupIndex] = newGroup;
+        
+        // Create a new waveJson object
+        waveJson = {
+          ...waveJson,
+          signal: newSignals
+        };
+        
+        dispatch('structurechange', { newWaveJson: waveJson });
+      }
+    }
+
+    function handleRightClick(event: CustomEvent<{ signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string }>) {
+      const { signalIndex, cycleIndex, x, y, currentValue } = event.detail;
+      
+      // Find the signal name
+      let signalName = '';
+      let currentIndex = 0;
+      
+      function findSignalName(items: SignalItem[]): string | null {
+        for (const item of items) {
+          if (Array.isArray(item)) {
+            // It's a group
+            const result = findSignalName(item.slice(1) as SignalItem[]);
+            if (result) return result;
+          } else if (item && typeof item === 'object' && 'name' in item) {
+            // It's a signal
+            if (currentIndex === signalIndex) {
+              return (item as WaveSignal).name;
+            }
+            currentIndex++;
+          } else {
+            // Spacer or unknown
+            currentIndex++;
+          }
+        }
+        return null;
+      }
+      
+      signalName = findSignalName(waveJson.signal) || `Signal ${signalIndex}`;
+      
+      contextMenuSignalName = signalName;
+      contextMenuSignalIndex = signalIndex;
+      contextMenuCycleIndex = cycleIndex;
+      contextMenuCurrentValue = currentValue;
+      contextMenuX = x;
+      contextMenuY = y;
+      contextMenuVisible = true;
+    }
+
+    function handleContextMenuSetValue(event: CustomEvent<{ value: string }>) {
+      const { value } = event.detail;
+      dispatch('cyclechange', {
+        signalIndex: contextMenuSignalIndex,
+        cycleIndex: contextMenuCycleIndex,
+        newChar: value
+      });
+      contextMenuVisible = false;
+    }
+
+    function handleContextMenuClose() {
+      contextMenuVisible = false;
+    }
+
+    // Create a map from signal items to their flat index for proper selection tracking
+    function createSignalIndexMap(items: SignalItem[]): Map<any, number> {
+      const map = new Map();
+      let index = 0;
+      
+      function processItems(itemList: SignalItem[]) {
+        for (const item of itemList) {
+          if (Array.isArray(item)) {
+            // It's a group - process its children
+            processItems(item.slice(1) as SignalItem[]);
+          } else if (item && typeof item === 'object' && 'name' in item) {
+            // It's a signal
+            map.set(item, index);
+            index++;
+          } else {
+            // It's a spacer or unknown - still counts for indexing
+            index++;
+          }
+        }
+      }
+      
+      processItems(items);
+      return map;
+    }
+
+    function handleWheel(event: WheelEvent) {
+      // Check for CMD key on macOS (metaKey) or Ctrl key on other platforms
+      if (event.metaKey || event.ctrlKey) {
+        event.preventDefault();
+        
+        // Determine zoom direction
+        const zoomOut = event.deltaY > 0;
+        const zoomFactor = 0.1;
+        
+        // Calculate new scale
+        const currentScale = waveJson.config?.hscale ?? 1;
+        let newScale = zoomOut 
+          ? Math.max(0.25, currentScale - zoomFactor)
+          : Math.min(4, currentScale + zoomFactor);
+        
+        // Round to 2 decimal places for cleaner values
+        newScale = Math.round(newScale * 100) / 100;
+        
+        // Update the waveJson configuration
+        if (!waveJson.config) waveJson.config = {};
+        waveJson.config.hscale = newScale;
+        waveJson = waveJson; // Trigger reactivity
+        
+        // Dispatch the change event
+        dispatch('structurechange', { newWaveJson: waveJson });
+      }
+      // If no modifier key, allow normal vertical scrolling
+    }
   
+        $: totalWaveformWidth = maxCycles * cycleWidth;
+    $: svgWidth = nameWidth + totalWaveformWidth + wavePadding * 2;
+
     let calculatedTotalSvgHeight = 0;
-    const headHeight = config.head?.text ? 40 : 0;
-    const footHeight = config.foot?.text ? 40 : 0;
+    $: headHeight = config.head?.text ? 40 : 0;
+    $: footHeight = config.foot?.text ? 40 : 0;
   
     function calculateHeightRecursive(items: SignalItem[], level: number): number {
       let height = 0;
@@ -60,7 +230,7 @@
       return height;
     }
   
-    calculatedTotalSvgHeight = headHeight + calculateHeightRecursive(waveJson.signal, 0) + footHeight;
+    $: calculatedTotalSvgHeight = headHeight + calculateHeightRecursive(waveJson.signal, 0) + footHeight;
     
     // Calculate Y positions for each item without reactive mutations
     function getYPositionForItem(itemIndex: number): number {
@@ -127,85 +297,162 @@
     }
   </script>
   
-  <svg width="{svgWidth}" height="{calculatedTotalSvgHeight}" xmlns="http://www.w3.org/2000/svg" class="wavedrom-diagram">
-    <defs>
-      <!-- Common definitions can go here, e.g., markers for arrows -->
-    </defs>
-    <style>
-      .wavedrom-diagram {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-        font-size: 14px;
-        background-color: white; /* Or inherit */
-      }
-      .signal-name, .group-name {
-        text-anchor: start;
-        dominant-baseline: middle;
-        font-size: 13px;
-      }
-      .group-name {
-        font-weight: 500;
-      }
-      .diagram-head text, .diagram-foot text {
-        text-anchor: middle;
-        dominant-baseline: middle;
-      }
-      /* Styles for SignalLane will be defined within or imported by SignalLane.svelte */
-    </style>
-  
-    <!-- Head Section -->
+    <div class="waveform-diagram" style="--hscale: {hscale}">
+    <!-- Header Section -->
     {#if config.head?.text}
-      <g class="diagram-head" transform="translate(0, 0)">
-        {@html renderJsonMlToSvg(config.head.text, svgWidth / 2, headHeight / 2)}
-      </g>
-      <!-- Ticks for head would be rendered here -->
+      <div class="diagram-header">
+        <div class="header-content">
+          {#if typeof config.head.text === 'string'}
+            {config.head.text}
+          {:else}
+            <!-- Handle JsonML text rendering if needed -->
+            Header
+          {/if}
+        </div>
+      </div>
     {/if}
-  
-        <!-- Main Signal Area -->
-    <g class="signal-area" transform="translate(0, {headHeight})">
-      {#each waveJson.signal as item, i (i)} <!-- Use simple index for stable keying -->
-        {@const itemType = getItemType(item)}
-        {@const yPos = getYPositionForItem(i)}
 
-        {#if itemType === 'signal'}
-          <SignalLane
-            signal={item as WaveSignal}
-            signalIndex={i}
-            y={yPos}
-            {nameWidth}
-            {cycleWidth}
-            {laneHeight}
-            {hscale}
-            {maxCycles}
-          />
-        {:else if itemType === 'group'}
-          <SignalGroup
-            group={item as WaveGroup}
-            y={yPos}
-            {nameWidth}
-            {cycleWidth}
-            {laneHeight}
-            {hscale}
-            {maxCycles}
-            level={0}
-            {getItemType}
-          />
-        {:else if itemType === 'spacer'}
-          <!-- Spacer: just a visual gap -->
-        {:else if itemType === 'unknown'}
-          <text x="10" y={yPos + laneHeight / 2} fill="red">Unknown item type at index {i}</text>
-        {/if}
-      {/each}
-    </g>
+    <!-- Main Content Area -->
+    <div class="diagram-content" on:wheel={handleWheel}>
+      <!-- Time Scale Grid Background -->
+      <WaveformGrid {maxCycles} {hscale} />
+      
+      <!-- Signal Content -->
+      <div class="signal-container">
+        {#each waveJson.signal as item, i (item)}
+          {@const itemType = getItemType(item)}
+          
+          {#if itemType === 'signal'}
+            <SignalLane
+              signal={item as WaveSignal}
+              signalIndex={signalIndexMap.get(item) ?? i}
+              {maxCycles}
+              {hscale}
+              {isCellSelected}
+              on:signalchange={(e) => handleSignalChange(e)}
+              on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:rightclick={(e) => handleRightClick(e)}
+            />
+          {:else if itemType === 'group'}
+            <SignalGroup
+              group={item as WaveGroup}
+              parentIndex={i}
+              {maxCycles}
+              {hscale}
+              level={0}
+              {getItemType}
+              {isCellSelected}
+              {signalIndexMap}
+              on:signalchange={(e) => handleSignalChange(e)}
+              on:structurechange={(e) => handleStructureChange(e)}
+              on:groupchange={(e) => handleGroupChange(e)}
+              on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:rightclick={(e) => handleRightClick(e)}
+            />
+          {:else if itemType === 'spacer'}
+            <div class="signal-spacer"></div>
+          {:else}
+            <div class="signal-unknown">
+              Unknown item type at index {i}
+            </div>
+          {/if}
+        {/each}
+      </div>
+    </div>
   
-    <!-- Foot Section -->
+    <!-- Footer Section -->
     {#if config.foot?.text}
-      <g class="diagram-foot" transform="translate(0, {calculatedTotalSvgHeight - footHeight})">
-        {@html renderJsonMlToSvg(config.foot.text, svgWidth / 2, footHeight / 2)}
-      </g>
-      <!-- Tocks for foot would be rendered here -->
+      <div class="diagram-footer">
+        <div class="footer-content">
+          {#if typeof config.foot.text === 'string'}
+            {config.foot.text}
+          {:else}
+            Footer
+          {/if}
+        </div>
+      </div>
     {/if}
+
+    <!-- Context Menu -->
+    <CycleContextMenu
+      visible={contextMenuVisible}
+      x={contextMenuX}
+      y={contextMenuY}
+      signalName={contextMenuSignalName}
+      cycleIndex={contextMenuCycleIndex}
+      currentValue={contextMenuCurrentValue}
+      on:setvalue={handleContextMenuSetValue}
+      on:close={handleContextMenuClose}
+    />
+  </div>
   
-    <!-- Edges would be rendered last, on top of everything else -->
-    <!-- <g class="edge-layer"></g> -->
-  </svg>
+  <style>
+    .waveform-diagram {
+      --name-width: 150px;
+      --cycle-width: calc(20px * var(--hscale));
+      --lane-height: 40px;
+      --grid-color: #e5e5e5;
+      --border-color: #d1d5db;
+      --background-color: #ffffff;
+      --text-color: #1f2937;
+      --header-footer-height: 40px;
+      
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      background-color: var(--background-color);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+  
+    .diagram-header,
+    .diagram-footer {
+      height: var(--header-footer-height);
+      background-color: #f9fafb;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+      color: var(--text-color);
+    }
+  
+    .diagram-footer {
+      border-bottom: none;
+      border-top: 1px solid var(--border-color);
+    }
+  
+    .diagram-content {
+      position: relative;
+      flex: 1;
+      overflow: auto;
+      min-height: 200px;
+      width: 100%;
+    }
+  
+    .signal-container {
+      position: relative;
+      z-index: 2;
+      min-width: calc(var(--name-width) + var(--cycle-width) * 16);
+      width: max-content;
+    }
+  
+    .signal-spacer {
+      height: calc(var(--lane-height) * 0.6);
+      border-bottom: 1px dashed var(--grid-color);
+    }
+  
+    .signal-unknown {
+      height: var(--lane-height);
+      display: flex;
+      align-items: center;
+      padding-left: 16px;
+      color: #dc2626;
+      background-color: #fef2f2;
+      border-bottom: 1px solid var(--border-color);
+    }
+  </style>
   
