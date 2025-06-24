@@ -10,6 +10,8 @@
   export let maxCycles: number;
   export let hscale: number = 1;
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+  export let parentGroupIndex: number | null = null;
+  export let localIndex: number | null = null;
 
     const dispatch = createEventDispatcher<{
       signalchange: { signalIndex: number; newSignal: WaveSignal };
@@ -385,7 +387,15 @@
       isDragging = true;
       if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', signalIndex.toString());
+        
+        // Use localIndex for internal group operations, signalIndex for top-level operations
+        const indexToUse = (parentGroupIndex !== null && localIndex !== null) ? localIndex : signalIndex;
+        event.dataTransfer.setData('text/plain', indexToUse.toString());
+        
+        // If this signal is inside a group, set the group index
+        if (parentGroupIndex !== null) {
+          event.dataTransfer.setData('application/groupIndex', parentGroupIndex.toString());
+        }
         
         // Create a custom drag image
         const dragImage = document.createElement('div');
@@ -435,13 +445,18 @@
       if (event.dataTransfer) {
         const fromIndexStr = event.dataTransfer.getData('text/plain');
         const fromIndex = parseInt(fromIndexStr, 10);
+        const isGroup = event.dataTransfer.getData('application/group') === 'true';
+        const isSpacer = event.dataTransfer.getData('application/spacer') === 'true';
         
-        if (!isNaN(fromIndex) && fromIndex !== signalIndex) {
+        // Use localIndex for internal group operations, signalIndex for top-level operations
+        const currentIndex = (parentGroupIndex !== null && localIndex !== null) ? localIndex : signalIndex;
+        
+        if (!isNaN(fromIndex) && fromIndex !== currentIndex) {
           // Calculate the target index based on drop position
-          let toIndex = signalIndex;
+          let toIndex = currentIndex;
           if (draggedOverPosition === 'below' || 
               (draggedOverPosition === null && event.clientY > (event.currentTarget as HTMLElement).getBoundingClientRect().top + (event.currentTarget as HTMLElement).getBoundingClientRect().height / 2)) {
-            toIndex = signalIndex + 1;
+            toIndex = currentIndex + 1;
           }
           
           // Adjust for the fact that removing an item shifts indices
@@ -449,7 +464,13 @@
             toIndex--;
           }
           
-          dispatch('signalreorder', { fromIndex, toIndex });
+          // Dispatch appropriate reorder event based on item type
+          if (isGroup || isSpacer) {
+            // For groups and spacers, we still use signalreorder but the parent will handle it appropriately
+            dispatch('signalreorder', { fromIndex, toIndex });
+          } else {
+            dispatch('signalreorder', { fromIndex, toIndex });
+          }
         }
       }
       

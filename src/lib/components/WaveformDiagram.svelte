@@ -26,6 +26,9 @@
   let contextMenuCycleIndex = 0;
   let contextMenuCurrentValue = '';
   
+  // Drag and drop state for spacers
+  let spacerDraggedOverPosition: { [key: number]: 'above' | 'below' | null } = {};
+  
     // Helper to differentiate SignalItem types
     function getItemType(item: SignalItem): 'signal' | 'group' | 'spacer' | 'unknown' {
       if (!item || typeof item !== 'object') return 'unknown';
@@ -178,6 +181,147 @@
       
       waveJson = newWaveJson;
       dispatch('structurechange', { newWaveJson });
+    }
+
+    function handleGroupReorder(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
+      const { fromIndex, toIndex } = event.detail;
+      
+      if (fromIndex === toIndex) return; // No change needed
+      
+      // Create a new signals array with reordered items
+      const newSignals = [...waveJson.signal];
+      
+      // Remove the group from its current position
+      const [movedGroup] = newSignals.splice(fromIndex, 1);
+      
+      // Insert it at the new position
+      newSignals.splice(toIndex, 0, movedGroup);
+      
+      // Update the waveJson structure
+      const newWaveJson = {
+        ...waveJson,
+        signal: newSignals
+      };
+      
+      waveJson = newWaveJson;
+      dispatch('structurechange', { newWaveJson });
+    }
+
+    function handleMoveToGroup(event: CustomEvent<{ fromIndex: number; toGroupIndex: number; itemType: 'signal' | 'group' | 'spacer' }>) {
+      const { fromIndex, toGroupIndex, itemType } = event.detail;
+      
+      // Create a new signals array
+      const newSignals = [...waveJson.signal];
+      
+      // Get the item being moved
+      const [movedItem] = newSignals.splice(fromIndex, 1);
+      
+      // For spacers, ensure they maintain their empty object structure
+      let itemToMove = movedItem;
+      if (itemType === 'spacer') {
+        // Ensure spacer is an empty object
+        itemToMove = {};
+      }
+      
+      // Find the target group and add the item to it
+      const adjustedGroupIndex = toGroupIndex < fromIndex ? toGroupIndex : toGroupIndex - 1;
+      const targetGroup = newSignals[adjustedGroupIndex] as WaveGroup;
+      
+      if (Array.isArray(targetGroup)) {
+        // Add the item to the end of the group
+        const newGroup: WaveGroup = [...targetGroup, itemToMove];
+        newSignals[adjustedGroupIndex] = newGroup;
+        
+        // Update the waveJson structure
+        const newWaveJson = {
+          ...waveJson,
+          signal: newSignals
+        };
+        
+        waveJson = newWaveJson;
+        dispatch('structurechange', { newWaveJson });
+      }
+    }
+
+    // Spacer drag and drop handlers
+    function handleSpacerDragStart(event: DragEvent, spacerIndex: number) {
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', spacerIndex.toString());
+        event.dataTransfer.setData('application/spacer', 'true');
+        
+        // Create a custom drag image
+        const dragImage = document.createElement('div');
+        dragImage.textContent = '--- SPACER ---';
+        dragImage.style.padding = '4px 8px';
+        dragImage.style.backgroundColor = '#6b7280';
+        dragImage.style.color = 'white';
+        dragImage.style.borderRadius = '4px';
+        dragImage.style.fontSize = '12px';
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-1000px';
+        document.body.appendChild(dragImage);
+        event.dataTransfer.setDragImage(dragImage, 0, 0);
+        
+        // Clean up drag image after a short delay
+        setTimeout(() => {
+          document.body.removeChild(dragImage);
+        }, 0);
+      }
+    }
+
+    function handleSpacerDragOver(event: DragEvent, spacerIndex: number) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+      
+      // Determine if dragging over top or bottom half
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const middleY = rect.top + rect.height / 2;
+      spacerDraggedOverPosition[spacerIndex] = event.clientY < middleY ? 'above' : 'below';
+      spacerDraggedOverPosition = { ...spacerDraggedOverPosition }; // Trigger reactivity
+    }
+
+    function handleSpacerDragLeave(event: DragEvent, spacerIndex: number) {
+      spacerDraggedOverPosition[spacerIndex] = null;
+      spacerDraggedOverPosition = { ...spacerDraggedOverPosition }; // Trigger reactivity
+    }
+
+    function handleSpacerDrop(event: DragEvent, spacerIndex: number) {
+      event.preventDefault();
+      
+      if (event.dataTransfer) {
+        const fromIndexStr = event.dataTransfer.getData('text/plain');
+        const fromIndex = parseInt(fromIndexStr, 10);
+        const isSpacer = event.dataTransfer.getData('application/spacer') === 'true';
+        const isGroup = event.dataTransfer.getData('application/group') === 'true';
+        
+        if (!isNaN(fromIndex) && fromIndex !== spacerIndex) {
+          // Calculate the target index based on drop position
+          let toIndex = spacerIndex;
+          const dragPosition = spacerDraggedOverPosition[spacerIndex];
+          if (dragPosition === 'below' || 
+              (dragPosition === null && event.clientY > (event.currentTarget as HTMLElement).getBoundingClientRect().top + (event.currentTarget as HTMLElement).getBoundingClientRect().height / 2)) {
+            toIndex = spacerIndex + 1;
+          }
+          
+          // Adjust for the fact that removing an item shifts indices
+          if (fromIndex < toIndex) {
+            toIndex--;
+          }
+          
+          // Handle the reordering based on item type
+          if (isSpacer || isGroup) {
+            handleGroupReorder({ detail: { fromIndex, toIndex } } as CustomEvent<{ fromIndex: number; toIndex: number }>);
+          } else {
+            handleSignalReorder({ detail: { fromIndex, toIndex } } as CustomEvent<{ fromIndex: number; toIndex: number }>);
+          }
+        }
+      }
+      
+      spacerDraggedOverPosition[spacerIndex] = null;
+      spacerDraggedOverPosition = { ...spacerDraggedOverPosition }; // Trigger reactivity
     }
 
     // Create a map from signal items to their flat index for proper selection tracking
@@ -377,9 +521,19 @@
               on:groupchange={(e) => handleGroupChange(e)}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:rightclick={(e) => handleRightClick(e)}
+              on:signalreorder={(e) => handleSignalReorder(e)}
+              on:groupreorder={(e) => handleGroupReorder(e)}
+              on:movetogroup={(e) => handleMoveToGroup(e)}
             />
           {:else if itemType === 'spacer'}
-            <div class="signal-spacer">
+            <div class="signal-spacer" 
+                 class:drag-over-above={spacerDraggedOverPosition[i] === 'above'}
+                 class:drag-over-below={spacerDraggedOverPosition[i] === 'below'}
+                 draggable="true"
+                 on:dragstart={(e) => handleSpacerDragStart(e, i)}
+                 on:dragover={(e) => handleSpacerDragOver(e, i)}
+                 on:dragleave={(e) => handleSpacerDragLeave(e, i)}
+                 on:drop={(e) => handleSpacerDrop(e, i)}>
               <div class="spacer-name">spacer</div>
               <div class="spacer-wave-area" style="width: {maxCycles * cycleWidth}px;">
                 <div class="spacer-vertical-line"></div>
@@ -479,6 +633,39 @@
       height: calc(var(--lane-height) * 0.6);
       display: flex;
       margin: 2px 0;
+      cursor: grab;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .signal-spacer:active {
+      cursor: grabbing;
+    }
+
+    .signal-spacer:hover {
+      background-color: rgba(59, 130, 246, 0.05);
+    }
+
+    .signal-spacer.drag-over-above::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background-color: #3b82f6;
+      z-index: 10;
+    }
+
+    .signal-spacer.drag-over-below::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background-color: #3b82f6;
+      z-index: 10;
     }
 
     .spacer-name {

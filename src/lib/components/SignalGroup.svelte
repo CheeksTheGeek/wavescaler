@@ -21,6 +21,9 @@
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
+      signalreorder: { fromIndex: number; toIndex: number };
+      groupreorder: { fromIndex: number; toIndex: number };
+      movetogroup: { fromIndex: number; toGroupIndex: number; itemType: 'signal' | 'group' | 'spacer' };
     }>();
   
     // Define 20 major colors for round-robin selection
@@ -64,6 +67,10 @@
     let isCollapsed = false;
     let isEditingName = false;
     let nameInput = '';
+    
+    // Drag and drop state
+    let isDragging = false;
+    let draggedOverPosition: 'above' | 'below' | null = null;
 
     function toggleCollapse() {
       isCollapsed = !isCollapsed;
@@ -157,13 +164,239 @@
       dispatch('groupchange', { groupIndex: parentIndex, newGroup });
     }
 
+    // Drag and drop handlers for the group itself
+    function handleGroupDragStart(event: DragEvent) {
+      isDragging = true;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', parentIndex.toString());
+        event.dataTransfer.setData('application/group', 'true');
+        // Note: Groups at top level don't have a parent group index, so we don't set it
+        
+        // Create a custom drag image
+        const dragImage = document.createElement('div');
+        dragImage.textContent = `📁 ${groupName}`;
+        dragImage.style.padding = '4px 8px';
+        dragImage.style.backgroundColor = '#3b82f6';
+        dragImage.style.color = 'white';
+        dragImage.style.borderRadius = '4px';
+        dragImage.style.fontSize = '12px';
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-1000px';
+        document.body.appendChild(dragImage);
+        event.dataTransfer.setDragImage(dragImage, 0, 0);
+        
+        // Clean up drag image after a short delay
+        setTimeout(() => {
+          document.body.removeChild(dragImage);
+        }, 0);
+      }
+    }
+
+    function handleGroupDragEnd(event: DragEvent) {
+      isDragging = false;
+      draggedOverPosition = null;
+    }
+
+    function handleGroupDragOver(event: DragEvent) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+      
+      // Determine if dragging over top or bottom half
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const middleY = rect.top + rect.height / 2;
+      draggedOverPosition = event.clientY < middleY ? 'above' : 'below';
+    }
+
+    function handleGroupDragLeave(event: DragEvent) {
+      draggedOverPosition = null;
+    }
+
+    function handleGroupDrop(event: DragEvent) {
+      event.preventDefault();
+      draggedOverPosition = null;
+      
+      if (event.dataTransfer) {
+        const fromIndexStr = event.dataTransfer.getData('text/plain');
+        const fromIndex = parseInt(fromIndexStr, 10);
+        const isGroup = event.dataTransfer.getData('application/group') === 'true';
+        const isSpacer = event.dataTransfer.getData('application/spacer') === 'true';
+        const isFromGroup = event.dataTransfer.getData('application/fromGroup') === 'true';
+        
+        if (!isNaN(fromIndex) && fromIndex !== parentIndex) {
+          // Calculate the target index based on drop position
+          let toIndex = parentIndex;
+          if (draggedOverPosition === 'below' || 
+              (draggedOverPosition === null && event.clientY > (event.currentTarget as HTMLElement).getBoundingClientRect().top + (event.currentTarget as HTMLElement).getBoundingClientRect().height / 2)) {
+            toIndex = parentIndex + 1;
+          }
+          
+          // Adjust for the fact that removing an item shifts indices
+          if (fromIndex < toIndex) {
+            toIndex--;
+          }
+          
+          if (isGroup) {
+            dispatch('groupreorder', { fromIndex, toIndex });
+          } else {
+            dispatch('signalreorder', { fromIndex, toIndex });
+          }
+        }
+      }
+      
+      isDragging = false;
+    }
+
+    // Internal reordering within the group
+    function handleInternalReorder(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
+      const { fromIndex, toIndex } = event.detail;
+      
+      if (fromIndex === toIndex) return; // No change needed
+      
+      // Create a new group items array with reordered items
+      const newGroupItems = [...groupItems];
+      
+      // Remove the item from its current position
+      const [movedItem] = newGroupItems.splice(fromIndex, 1);
+      
+      // Ensure item maintains its proper structure based on type
+      let itemToMove = movedItem;
+      const itemType = getItemType(movedItem);
+      
+      if (itemType === 'spacer') {
+        // For spacers, ensure they maintain their empty object structure
+        itemToMove = {};
+      } else if (itemType === 'signal') {
+        // For signals, ensure they maintain their signal structure
+        itemToMove = { ...movedItem } as WaveSignal;
+      } else if (itemType === 'group') {
+        // For groups, ensure they maintain their array structure
+        itemToMove = [...movedItem] as WaveGroup;
+      }
+      
+      // Insert it at the new position
+      newGroupItems.splice(toIndex, 0, itemToMove);
+      
+      // Update the group structure
+      const newGroup: WaveGroup = [groupName, ...newGroupItems];
+      
+      // Dispatch the change
+      dispatch('groupchange', { groupIndex: parentIndex, newGroup });
+    }
+
+    // Spacer drag and drop handlers for items inside the group
+    function handleSpacerDragStart(event: DragEvent, spacerIndex: number) {
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', spacerIndex.toString());
+        event.dataTransfer.setData('application/spacer', 'true');
+        event.dataTransfer.setData('application/groupIndex', parentIndex.toString());
+        
+        // Create a custom drag image
+        const dragImage = document.createElement('div');
+        dragImage.textContent = '--- SPACER ---';
+        dragImage.style.padding = '4px 8px';
+        dragImage.style.backgroundColor = '#6b7280';
+        dragImage.style.color = 'white';
+        dragImage.style.borderRadius = '4px';
+        dragImage.style.fontSize = '12px';
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-1000px';
+        document.body.appendChild(dragImage);
+        event.dataTransfer.setDragImage(dragImage, 0, 0);
+        
+        // Clean up drag image after a short delay
+        setTimeout(() => {
+          document.body.removeChild(dragImage);
+        }, 0);
+      }
+    }
+
+    function handleSpacerDragOver(event: DragEvent, spacerIndex: number) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    }
+
+    function handleSpacerDragLeave(event: DragEvent, spacerIndex: number) {
+      // No specific action needed for leave in this context
+    }
+
+    function handleSpacerDrop(event: DragEvent, spacerIndex: number) {
+      event.preventDefault();
+      
+      if (event.dataTransfer) {
+        const fromIndexStr = event.dataTransfer.getData('text/plain');
+        const fromIndex = parseInt(fromIndexStr, 10);
+        
+        if (!isNaN(fromIndex) && fromIndex !== spacerIndex) {
+          // Calculate the target index based on drop position
+          let toIndex = spacerIndex;
+          if (event.clientY > (event.currentTarget as HTMLElement).getBoundingClientRect().top + (event.currentTarget as HTMLElement).getBoundingClientRect().height / 2) {
+            toIndex = spacerIndex + 1;
+          }
+          
+          // Adjust for the fact that removing an item shifts indices
+          if (fromIndex < toIndex) {
+            toIndex--;
+          }
+          
+          handleInternalReorder({ detail: { fromIndex, toIndex } } as CustomEvent<{ fromIndex: number; toIndex: number }>);
+        }
+      }
+    }
+
+    // Group content drop handlers for cross-context moves
+    function handleGroupContentDragOver(event: DragEvent) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+    }
+
+    function handleGroupContentDrop(event: DragEvent) {
+      event.preventDefault();
+      
+      if (event.dataTransfer) {
+        const fromIndexStr = event.dataTransfer.getData('text/plain');
+        const fromIndex = parseInt(fromIndexStr, 10);
+        const isGroup = event.dataTransfer.getData('application/group') === 'true';
+        const isSpacer = event.dataTransfer.getData('application/spacer') === 'true';
+        const isFromSameGroup = event.dataTransfer.getData('application/groupIndex') === parentIndex.toString();
+        
+        if (!isNaN(fromIndex) && !isFromSameGroup) {
+          // This is a cross-context move - moving an item from outside into this group
+          // We need to dispatch a special event to handle this at the top level
+          dispatch('movetogroup', { 
+            fromIndex, 
+            toGroupIndex: parentIndex, 
+            itemType: isGroup ? 'group' : isSpacer ? 'spacer' : 'signal'
+          });
+        }
+      }
+    }
+
 
   
   </script>
   
-  <div class="signal-group" style="--level: {level}">
+  <div class="signal-group" 
+       class:dragging={isDragging}
+       class:drag-over-above={draggedOverPosition === 'above'}
+       class:drag-over-below={draggedOverPosition === 'below'}
+       style="--level: {level}">
     <!-- Group Header -->
-    <div class="group-header" style="background-color: {groupHeaderColor}; width: {150 + (maxCycles * 40 * hscale)}px;">
+    <div class="group-header" 
+         style="background-color: {groupHeaderColor}; width: {150 + (maxCycles * 40 * hscale)}px;"
+         draggable="true"
+         on:dragstart={handleGroupDragStart}
+         on:dragend={handleGroupDragEnd}
+         on:dragover={handleGroupDragOver}
+         on:dragleave={handleGroupDragLeave}
+         on:drop={handleGroupDrop}>
       <div class="group-name-container">
               <button 
         class="collapse-button"
@@ -217,7 +450,10 @@
 
     <!-- Group Content -->
     {#if !isCollapsed}
-      <div class="group-content" style="--group-bg-color: {groupBackgroundColor}; width: {150 + (maxCycles * 40 * hscale)}px;">
+      <div class="group-content" 
+           style="--group-bg-color: {groupBackgroundColor}; width: {150 + (maxCycles * 40 * hscale)}px;"
+           on:dragover={handleGroupContentDragOver}
+           on:drop={handleGroupContentDrop}>
         {#each groupItems as item, index (index)}
           {@const itemType = getItemType(item)}
 
@@ -225,6 +461,8 @@
             <SignalLane
               signal={item as WaveSignal}
               signalIndex={signalIndexMap.get(item) ?? index}
+              localIndex={index}
+              parentGroupIndex={parentIndex}
               {maxCycles}
               {hscale}
               {isCellSelected}
@@ -232,6 +470,7 @@
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
+              on:signalreorder={handleInternalReorder}
             />
           {:else if itemType === 'group'}
             <svelte:self
@@ -248,9 +487,16 @@
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
+              on:signalreorder={handleInternalReorder}
+              on:groupreorder={handleInternalReorder}
             />
           {:else if itemType === 'spacer'}
-            <div class="group-spacer">
+            <div class="group-spacer" 
+                 draggable="true"
+                 on:dragstart={(e) => handleSpacerDragStart(e, index)}
+                 on:dragover={(e) => handleSpacerDragOver(e, index)}
+                 on:dragleave={(e) => handleSpacerDragLeave(e, index)}
+                 on:drop={(e) => handleSpacerDrop(e, index)}>
               <div class="spacer-name">spacer</div>
               <div class="spacer-wave-area" style="width: {maxCycles * 40 * hscale}px;">
                 <div class="spacer-vertical-line"></div>
@@ -271,6 +517,34 @@
       --indent: calc(var(--level) * 20px);
       border-left: 2px solid #e5e7eb;
       margin-left: var(--indent);
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .signal-group.dragging {
+      opacity: 0.5;
+    }
+
+    .signal-group.drag-over-above::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background-color: #3b82f6;
+      z-index: 10;
+    }
+
+    .signal-group.drag-over-below::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background-color: #3b82f6;
+      z-index: 10;
     }
 
     .group-header {
@@ -281,6 +555,16 @@
       background-color: transparent;
       border-bottom: 1px solid var(--border-color);
       padding-right: 8px;
+      cursor: grab;
+      transition: background-color 0.15s ease;
+    }
+
+    .group-header:active {
+      cursor: grabbing;
+    }
+
+    .group-header:hover {
+      background-color: rgba(59, 130, 246, 0.05);
     }
 
     .group-name-container {
@@ -403,6 +687,17 @@
       height: calc(var(--lane-height) * 0.6);
       display: flex;
       margin: 2px 0;
+      cursor: grab;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .group-spacer:active {
+      cursor: grabbing;
+    }
+
+    .group-spacer:hover {
+      background-color: rgba(59, 130, 246, 0.05);
     }
 
     .spacer-name {
