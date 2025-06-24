@@ -476,15 +476,22 @@
           bind:value={nameInput}
           on:blur={finishEditingName}
           on:keydown={handleNameKeydown}
+          autofocus
         />
       {:else}
-        <button 
-          class="signal-name-button"
-          on:click={startEditingName}
-          title="Click to edit signal name"
-        >
-          {signal.name}
-        </button>
+        <div class="signal-name-display">
+          <span class="signal-name-text">{signal.name}</span>
+          <button 
+            class="edit-name-button"
+            on:click={startEditingName}
+            title="Edit signal name"
+            aria-label="Edit signal name"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12">
+              <path d="M8.5 1.5 L10.5 3.5 L3.5 10.5 L1.5 11 L2 8.5 L8.5 1.5 Z M7.5 2.5 L9.5 4.5" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
       {/if}
     </div>
   
@@ -574,22 +581,39 @@
       z-index: 2; /* Above grid lines */
     }
   
-    .signal-name-button {
+    .signal-name-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      gap: 8px;
+    }
+
+    .signal-name-text {
+      color: var(--text-color);
+      font-weight: 500;
+      flex: 1;
+      text-align: left;
+    }
+
+    .edit-name-button {
       background: none;
       border: none;
-      font: inherit;
-      color: var(--text-color);
       cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
-      transition: background-color 0.15s ease;
-      text-align: left;
-      width: 100%;
-      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      color: #6b7280;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
     }
-  
-    .signal-name-button:hover {
+
+    .edit-name-button:hover {
       background-color: #e5e7eb;
+      color: #374151;
     }
   
     .signal-name-input {

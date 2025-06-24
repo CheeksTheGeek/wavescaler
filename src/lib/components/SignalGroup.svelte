@@ -177,21 +177,28 @@
         </button>
 
         {#if isEditingName}
-                  <input
-          type="text"
-          class="group-name-input"
-          bind:value={nameInput}
-          on:blur={finishEditingName}
-          on:keydown={handleNameKeydown}
-        />
+          <input
+            type="text"
+            class="group-name-input"
+            bind:value={nameInput}
+            on:blur={finishEditingName}
+            on:keydown={handleNameKeydown}
+            autofocus
+          />
         {:else}
-          <button 
-            class="group-name-button"
-            on:click={startEditingName}
-            title="Click to edit group name"
-          >
-            {groupName}
-          </button>
+          <div class="group-name-display">
+            <span class="group-name-text">{groupName}</span>
+            <button 
+              class="edit-group-name-button"
+              on:click={startEditingName}
+              title="Edit group name"
+              aria-label="Edit group name"
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12">
+                <path d="M8.5 1.5 L10.5 3.5 L3.5 10.5 L1.5 11 L2 8.5 L8.5 1.5 Z M7.5 2.5 L9.5 4.5" stroke="currentColor" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         {/if}
 
         <!-- Add signal button moved next to group name -->
@@ -316,23 +323,40 @@
       transform: rotate(90deg); /* Down arrow when expanded */
     }
 
-    .group-name-button {
-      background: none;
-      border: none;
-      font: inherit;
-      color: var(--text-color);
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
-      transition: background-color 0.15s ease;
-      text-align: left;
+    .group-name-display {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       flex: 1;
-      font-weight: 600;
-      font-size: 13px;
+      gap: 8px;
     }
 
-    .group-name-button:hover {
+    .group-name-text {
+      color: var(--text-color);
+      font-weight: 600;
+      font-size: 13px;
+      flex: 1;
+      text-align: left;
+    }
+
+    .edit-group-name-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 3px;
+      color: #6b7280;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .edit-group-name-button:hover {
       background-color: #e5e7eb;
+      color: #374151;
     }
 
     .group-name-input {
