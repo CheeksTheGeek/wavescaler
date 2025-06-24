@@ -16,6 +16,7 @@
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
+      signalreorder: { fromIndex: number; toIndex: number };
     }>();
   
     interface ProcessedCycle {
@@ -44,6 +45,10 @@
     let resizeObserver: ResizeObserver | null = null;
     let animationFrameId: number | null = null;
     let isUpdating = false;
+    
+    // Drag and drop state
+    let isDragging = false;
+    let draggedOverPosition: 'above' | 'below' | null = null;
   
         // Process wave string into individual cycles
     $: {
@@ -375,6 +380,82 @@
       }
     }
 
+    // Drag and drop handlers
+    function handleDragStart(event: DragEvent) {
+      isDragging = true;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', signalIndex.toString());
+        
+        // Create a custom drag image
+        const dragImage = document.createElement('div');
+        dragImage.textContent = signal.name;
+        dragImage.style.padding = '4px 8px';
+        dragImage.style.backgroundColor = '#3b82f6';
+        dragImage.style.color = 'white';
+        dragImage.style.borderRadius = '4px';
+        dragImage.style.fontSize = '12px';
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-1000px';
+        document.body.appendChild(dragImage);
+        event.dataTransfer.setDragImage(dragImage, 0, 0);
+        
+        // Clean up drag image after a short delay
+        setTimeout(() => {
+          document.body.removeChild(dragImage);
+        }, 0);
+      }
+    }
+
+    function handleDragEnd(event: DragEvent) {
+      isDragging = false;
+      draggedOverPosition = null;
+    }
+
+    function handleDragOver(event: DragEvent) {
+      event.preventDefault();
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'move';
+      }
+      
+      // Determine if dragging over top or bottom half
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      const middleY = rect.top + rect.height / 2;
+      draggedOverPosition = event.clientY < middleY ? 'above' : 'below';
+    }
+
+    function handleDragLeave(event: DragEvent) {
+      draggedOverPosition = null;
+    }
+
+    function handleDrop(event: DragEvent) {
+      event.preventDefault();
+      draggedOverPosition = null;
+      
+      if (event.dataTransfer) {
+        const fromIndexStr = event.dataTransfer.getData('text/plain');
+        const fromIndex = parseInt(fromIndexStr, 10);
+        
+        if (!isNaN(fromIndex) && fromIndex !== signalIndex) {
+          // Calculate the target index based on drop position
+          let toIndex = signalIndex;
+          if (draggedOverPosition === 'below' || 
+              (draggedOverPosition === null && event.clientY > (event.currentTarget as HTMLElement).getBoundingClientRect().top + (event.currentTarget as HTMLElement).getBoundingClientRect().height / 2)) {
+            toIndex = signalIndex + 1;
+          }
+          
+          // Adjust for the fact that removing an item shifts indices
+          if (fromIndex < toIndex) {
+            toIndex--;
+          }
+          
+          dispatch('signalreorder', { fromIndex, toIndex });
+        }
+      }
+      
+      isDragging = false;
+    }
+
     function needsTransition(fromCycle: ProcessedCycle, toCycle: ProcessedCycle): boolean {
       // Get visual representation for the cycle (same logic as SignalTransition)
       function getCycleType(cycle: ProcessedCycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
@@ -466,9 +547,19 @@
     }
   </script>
   
-  <div class="signal-lane" style="--hscale: {hscale}; --cycle-height: 40px;">
+  <div class="signal-lane" 
+       class:dragging={isDragging}
+       class:drag-over-above={draggedOverPosition === 'above'}
+       class:drag-over-below={draggedOverPosition === 'below'}
+       style="--hscale: {hscale}; --cycle-height: 40px;">
     <!-- Signal Name -->
-    <div class="signal-name-container">
+    <div class="signal-name-container"
+         draggable="true"
+         on:dragstart={handleDragStart}
+         on:dragend={handleDragEnd}
+         on:dragover={handleDragOver}
+         on:dragleave={handleDragLeave}
+         on:drop={handleDrop}>
       {#if isEditingName}
         <input
           type="text"
@@ -568,6 +659,34 @@
       height: var(--lane-height);
       border-bottom: 1px solid var(--border-color);
       background-color: transparent; /* Allow grid lines to show through */
+      transition: all 0.15s ease;
+      position: relative;
+    }
+
+    .signal-lane.dragging {
+      opacity: 0.5;
+    }
+
+    .signal-lane.drag-over-above::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background-color: #3b82f6;
+      z-index: 10;
+    }
+
+    .signal-lane.drag-over-below::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background-color: #3b82f6;
+      z-index: 10;
     }
   
     .signal-name-container {
@@ -579,6 +698,16 @@
       border-right: 1px solid var(--border-color);
       flex-shrink: 0;
       z-index: 2; /* Above grid lines */
+      cursor: grab;
+      transition: background-color 0.15s ease;
+    }
+
+    .signal-name-container:active {
+      cursor: grabbing;
+    }
+
+    .signal-name-container:hover {
+      background-color: rgba(59, 130, 246, 0.05);
     }
   
     .signal-name-display {

@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, WaveSpacer } from '$lib/wavejson-types';
+    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, WaveSpacer, JsonMl } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
     import SignalGroup from './SignalGroup.svelte';
     import WaveformGrid from './WaveformGrid.svelte';
@@ -154,6 +154,30 @@
 
     function handleContextMenuClose() {
       contextMenuVisible = false;
+    }
+
+    function handleSignalReorder(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
+      const { fromIndex, toIndex } = event.detail;
+      
+      if (fromIndex === toIndex) return; // No change needed
+      
+      // Create a new signals array with reordered items
+      const newSignals = [...waveJson.signal];
+      
+      // Remove the signal from its current position
+      const [movedSignal] = newSignals.splice(fromIndex, 1);
+      
+      // Insert it at the new position
+      newSignals.splice(toIndex, 0, movedSignal);
+      
+      // Update the waveJson structure
+      const newWaveJson = {
+        ...waveJson,
+        signal: newSignals
+      };
+      
+      waveJson = newWaveJson;
+      dispatch('structurechange', { newWaveJson });
     }
 
     // Create a map from signal items to their flat index for proper selection tracking
@@ -336,6 +360,7 @@
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:rightclick={(e) => handleRightClick(e)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
+              on:signalreorder={(e) => handleSignalReorder(e)}
             />
           {:else if itemType === 'group'}
             <SignalGroup
