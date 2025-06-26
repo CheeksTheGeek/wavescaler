@@ -255,7 +255,7 @@
         itemToMove = { ...movedItem } as WaveSignal;
       } else if (itemType === 'group') {
         // For groups, ensure they maintain their array structure
-        itemToMove = [...movedItem] as WaveGroup;
+        itemToMove = [...(movedItem as WaveGroup)] as WaveGroup;
       }
       
       // Insert it at the new position
@@ -504,7 +504,6 @@
     .signal-group {
       --indent: calc(var(--level) * 20px);
       border-left: 2px solid #e5e7eb;
-      margin-left: var(--indent);
       transition: all 0.15s ease;
       position: relative;
     }
@@ -557,11 +556,16 @@
 
     .group-name-container {
       width: var(--name-width);
+      max-width: var(--name-width);
       display: flex;
       align-items: center;
       padding: 0 8px;
-      gap: 8px;
+      padding-left: calc(8px + var(--indent)); /* Add indentation via padding */
+      gap: 2px; /* Even smaller gap */
       flex-shrink: 0;
+      min-width: 0; /* Allow flexbox to shrink */
+      overflow: hidden; /* Prevent overflow */
+      box-sizing: border-box; /* Include padding in width calculation */
     }
 
     .collapse-button {
@@ -571,11 +575,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 18px; /* Slightly smaller to save space */
+      height: 18px;
       border-radius: 3px;
       color: #6b7280;
       transition: all 0.15s ease;
+      flex-shrink: 1; /* Allow shrinking if absolutely necessary */
+      min-width: 14px; /* But not smaller than 14px */
     }
 
     .collapse-button:hover {
@@ -600,7 +606,10 @@
       align-items: center;
       justify-content: space-between;
       flex: 1;
-      gap: 8px;
+      gap: 2px; /* Even smaller gap */
+      min-width: 0; /* Allow flexbox to shrink */
+      overflow: hidden; /* Prevent overflow */
+      max-width: 100%; /* Ensure it doesn't exceed container */
     }
 
     .group-name-text {
@@ -609,6 +618,10 @@
       font-size: 13px;
       flex: 1;
       text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0; /* Allow text to shrink */
     }
 
     .edit-group-name-button {
@@ -618,12 +631,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 16px; /* Smaller to save space */
+      height: 16px;
       border-radius: 3px;
       color: #6b7280;
       transition: all 0.15s ease;
-      flex-shrink: 0;
+      flex-shrink: 1; /* Allow shrinking if absolutely necessary */
+      min-width: 12px; /* But not smaller than 12px */
     }
 
     .edit-group-name-button:hover {
@@ -654,12 +668,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 18px; /* Slightly smaller to save space */
+      height: 18px;
       border-radius: 3px;
       color: #6b7280;
       transition: all 0.15s ease;
-      margin-left: 4px;
+      margin-left: 1px; /* Even smaller margin */
+      flex-shrink: 1; /* Allow shrinking if absolutely necessary */
+      min-width: 14px; /* But not smaller than 14px */
     }
 
     .add-signal-button:hover {

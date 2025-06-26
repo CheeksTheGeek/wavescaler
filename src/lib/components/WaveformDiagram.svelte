@@ -49,11 +49,54 @@
   let resizeStartX = 0;
   let resizeStartWidth = 0;
 
+  // Calculate minimum width needed for nested groups
+  let minimumNameWidth = 100; // Base minimum
+
   // Load saved width from localStorage on mount
   if (typeof window !== 'undefined') {
     const savedWidth = localStorage.getItem('wavescaler-name-column-width');
     if (savedWidth) {
       nameColumnWidth = parseInt(savedWidth, 10);
+    }
+  }
+
+  // Calculate the minimum width needed based on group nesting
+  function calculateMinimumNameWidth(items: SignalItem[], level: number = 0): number {
+    let maxNeededWidth = 120; // Base minimum for signals (increased)
+    
+    for (const item of items) {
+      if (Array.isArray(item)) {
+        // It's a group - check its nesting depth
+        const groupName = item[0] as string;
+        const groupItems = item.slice(1) as SignalItem[];
+        
+        // Calculate space needed for this level:
+        // - Base padding: 8px on each side = 16px
+        // - Indentation: level * 20px (margin-left on signal-group)
+        // - Collapse button: 18px (min 14px)
+        // - Edit button: 16px (min 12px)
+        // - Add button: 18px (min 14px)
+        // - Gaps between elements: 2px + 1px = 3px total
+        // - Minimum text space: 40px (for at least 3-4 characters)
+        const spaceNeeded = 16 + (level * 20) + 18 + 16 + 18 + 3 + 40;
+        
+        maxNeededWidth = Math.max(maxNeededWidth, spaceNeeded);
+        
+        // Recursively check nested groups
+        const nestedMin = calculateMinimumNameWidth(groupItems, level + 1);
+        maxNeededWidth = Math.max(maxNeededWidth, nestedMin);
+      }
+    }
+    
+    return maxNeededWidth;
+  }
+
+  // Reactively calculate minimum width
+  $: {
+    minimumNameWidth = calculateMinimumNameWidth(waveJson.signal);
+    // Ensure current width meets minimum
+    if (nameColumnWidth < minimumNameWidth) {
+      nameColumnWidth = minimumNameWidth;
     }
   }
   
@@ -206,7 +249,7 @@
       if (!isResizing) return;
       
       const deltaX = event.clientX - resizeStartX;
-      const newWidth = Math.max(100, Math.min(400, resizeStartWidth + deltaX)); // Min 100px, max 400px
+      const newWidth = Math.max(minimumNameWidth, Math.min(400, resizeStartWidth + deltaX)); // Use dynamic minimum, max 400px
       nameColumnWidth = newWidth;
     }
 
@@ -569,11 +612,12 @@
       <div 
         class="column-resize-handle"
         class:resizing={isResizing}
+        class:at-minimum={nameColumnWidth <= minimumNameWidth}
         style="left: {nameColumnWidth - 2}px"
         on:mousedown={handleResizeStart}
         role="separator"
         aria-label="Resize signal name column"
-        title="Drag to resize signal name column"
+        title="Drag to resize signal name column (minimum: {minimumNameWidth}px)"
       ></div>
       
       <!-- Signal Content -->
@@ -857,6 +901,20 @@
     .column-resize-handle.resizing::after {
       opacity: 1;
       background-color: #3b82f6;
+    }
+
+    /* Visual indicator when at minimum width */
+    .column-resize-handle.at-minimum {
+      background-color: rgba(245, 158, 11, 0.3);
+    }
+
+    .column-resize-handle.at-minimum:hover {
+      background-color: rgba(245, 158, 11, 0.5);
+    }
+
+    .column-resize-handle.at-minimum::after {
+      background-color: #f59e0b;
+      opacity: 0.8;
     }
   </style>
   
