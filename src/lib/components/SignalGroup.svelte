@@ -425,7 +425,7 @@
        style="--level: {level}">
     <!-- Group Header -->
     <div class="group-header" 
-         style="background-color: {groupHeaderColor}; width: {150 + (maxCycles * 40 * hscale)}px;"
+         style="background-color: {groupHeaderColor}; width: calc(var(--name-width) + {maxCycles * 40 * hscale}px);"
          draggable="true"
          on:dragstart={handleGroupDragStart}
          on:dragend={handleGroupDragEnd}
@@ -486,7 +486,7 @@
     <!-- Group Content -->
     {#if !isCollapsed}
       <div class="group-content" 
-           style="--group-bg-color: {groupBackgroundColor}; width: {150 + (maxCycles * 40 * hscale)}px;"
+           style="--group-bg-color: {groupBackgroundColor}; width: calc(var(--name-width) + {maxCycles * 40 * hscale}px);"
            on:dragover={handleGroupContentDragOver}
            on:drop={handleGroupContentDrop}>
         {#each groupItems as item, index (index)}
