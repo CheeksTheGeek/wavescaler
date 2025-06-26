@@ -1,5 +1,6 @@
 <script lang="ts">
-    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, WaveSpacer, JsonMl } from '$lib/wavejson-types';
+    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, WaveSpacer, JsonMl, TreePath, DragDropContext } from '$lib/wavejson-types';
+    import { WaveTreeManager } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
     import SignalGroup from './SignalGroup.svelte';
     import WaveformGrid from './WaveformGrid.svelte';
@@ -28,6 +29,19 @@
   
   // Drag and drop state for spacers
   let spacerDraggedOverPosition: { [key: number]: 'above' | 'below' | null } = {};
+  
+  // Improved drag and drop state using tree paths
+  let dragState: {
+    isDragging: boolean;
+    sourcePath: number[] | null;
+    sourceType: 'signal' | 'group' | 'spacer' | null;
+    sourceItem: SignalItem | null;
+  } = {
+    isDragging: false,
+    sourcePath: null,
+    sourceType: null,
+    sourceItem: null
+  };
   
     // Helper to differentiate SignalItem types
     function getItemType(item: SignalItem): 'signal' | 'group' | 'spacer' | 'unknown' {
@@ -159,21 +173,105 @@
       contextMenuVisible = false;
     }
 
+    // New unified drag and drop handling
+    function handleDragStart(event: DragEvent, path: number[], itemType: 'signal' | 'group' | 'spacer') {
+      const item = WaveTreeManager.getItemAtPath(waveJson.signal, path);
+      if (!item) return;
+      
+      dragState = {
+        isDragging: true,
+        sourcePath: path,
+        sourceType: itemType,
+        sourceItem: item
+      };
+      
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        // Encode the path as JSON for precise identification
+        event.dataTransfer.setData('application/wavescaler-path', JSON.stringify(path));
+        event.dataTransfer.setData('application/wavescaler-type', itemType);
+        
+        // Create appropriate drag image
+        const dragImage = document.createElement('div');
+        if (itemType === 'signal') {
+          dragImage.textContent = (item as WaveSignal).name;
+          dragImage.style.backgroundColor = '#3b82f6';
+        } else if (itemType === 'group') {
+          dragImage.textContent = `📁 ${(item as WaveGroup)[0]}`;
+          dragImage.style.backgroundColor = '#3b82f6';
+        } else {
+          dragImage.textContent = '--- SPACER ---';
+          dragImage.style.backgroundColor = '#6b7280';
+        }
+        
+        dragImage.style.padding = '4px 8px';
+        dragImage.style.color = 'white';
+        dragImage.style.borderRadius = '4px';
+        dragImage.style.fontSize = '12px';
+        dragImage.style.position = 'absolute';
+        dragImage.style.top = '-1000px';
+        document.body.appendChild(dragImage);
+        event.dataTransfer.setDragImage(dragImage, 0, 0);
+        
+        setTimeout(() => {
+          document.body.removeChild(dragImage);
+        }, 0);
+      }
+    }
+
+    function handleDragEnd() {
+      dragState = {
+        isDragging: false,
+        sourcePath: null,
+        sourceType: null,
+        sourceItem: null
+      };
+    }
+
+    function handleDrop(event: DragEvent, targetPath: number[], position: 'before' | 'after' | 'inside') {
+      event.preventDefault();
+      
+      const sourcePathStr = event.dataTransfer?.getData('application/wavescaler-path');
+      const sourceType = event.dataTransfer?.getData('application/wavescaler-type') as 'signal' | 'group' | 'spacer';
+      
+      if (!sourcePathStr || !sourceType) return;
+      
+      const sourcePath: number[] = JSON.parse(sourcePathStr);
+      
+      // Don't drop on self
+      if (JSON.stringify(sourcePath) === JSON.stringify(targetPath)) return;
+      
+      // Validate that inside drops are only on groups
+      if (position === 'inside') {
+        const targetItem = WaveTreeManager.getItemAtPath(waveJson.signal, targetPath);
+        if (!Array.isArray(targetItem)) return; // Can only drop inside groups
+      }
+      
+      // Perform the move operation
+      const newSignals = WaveTreeManager.moveItem(waveJson.signal, sourcePath, targetPath, position);
+      
+      // Update the waveJson structure
+      const newWaveJson = {
+        ...waveJson,
+        signal: newSignals
+      };
+      
+      waveJson = newWaveJson;
+      dispatch('structurechange', { newWaveJson });
+      
+      // Reset drag state
+      handleDragEnd();
+    }
+
+    // Legacy handlers for compatibility - these will forward to the new system
     function handleSignalReorder(event: CustomEvent<{ fromIndex: number; toIndex: number }>) {
       const { fromIndex, toIndex } = event.detail;
       
       if (fromIndex === toIndex) return; // No change needed
       
-      // Create a new signals array with reordered items
-      const newSignals = [...waveJson.signal];
+      const position = fromIndex < toIndex ? 'after' : 'before';
+      const newSignals = WaveTreeManager.moveItem(waveJson.signal, [fromIndex], [toIndex], position);
       
-      // Remove the signal from its current position
-      const [movedSignal] = newSignals.splice(fromIndex, 1);
-      
-      // Insert it at the new position
-      newSignals.splice(toIndex, 0, movedSignal);
-      
-      // Update the waveJson structure
       const newWaveJson = {
         ...waveJson,
         signal: newSignals
@@ -188,16 +286,9 @@
       
       if (fromIndex === toIndex) return; // No change needed
       
-      // Create a new signals array with reordered items
-      const newSignals = [...waveJson.signal];
+      const position = fromIndex < toIndex ? 'after' : 'before';
+      const newSignals = WaveTreeManager.moveItem(waveJson.signal, [fromIndex], [toIndex], position);
       
-      // Remove the group from its current position
-      const [movedGroup] = newSignals.splice(fromIndex, 1);
-      
-      // Insert it at the new position
-      newSignals.splice(toIndex, 0, movedGroup);
-      
-      // Update the waveJson structure
       const newWaveJson = {
         ...waveJson,
         signal: newSignals
@@ -210,64 +301,20 @@
     function handleMoveToGroup(event: CustomEvent<{ fromIndex: number; toGroupIndex: number; itemType: 'signal' | 'group' | 'spacer' }>) {
       const { fromIndex, toGroupIndex, itemType } = event.detail;
       
-      // Create a new signals array
-      const newSignals = [...waveJson.signal];
+      const newSignals = WaveTreeManager.moveItem(waveJson.signal, [fromIndex], [toGroupIndex], 'inside');
       
-      // Get the item being moved
-      const [movedItem] = newSignals.splice(fromIndex, 1);
+      const newWaveJson = {
+        ...waveJson,
+        signal: newSignals
+      };
       
-      // For spacers, ensure they maintain their empty object structure
-      let itemToMove = movedItem;
-      if (itemType === 'spacer') {
-        // Ensure spacer is an empty object
-        itemToMove = {};
-      }
-      
-      // Find the target group and add the item to it
-      const adjustedGroupIndex = toGroupIndex < fromIndex ? toGroupIndex : toGroupIndex - 1;
-      const targetGroup = newSignals[adjustedGroupIndex] as WaveGroup;
-      
-      if (Array.isArray(targetGroup)) {
-        // Add the item to the end of the group
-        const newGroup: WaveGroup = [...targetGroup, itemToMove];
-        newSignals[adjustedGroupIndex] = newGroup;
-        
-        // Update the waveJson structure
-        const newWaveJson = {
-          ...waveJson,
-          signal: newSignals
-        };
-        
-        waveJson = newWaveJson;
-        dispatch('structurechange', { newWaveJson });
-      }
+      waveJson = newWaveJson;
+      dispatch('structurechange', { newWaveJson });
     }
 
-    // Spacer drag and drop handlers
+    // Spacer drag and drop handlers (legacy compatibility)
     function handleSpacerDragStart(event: DragEvent, spacerIndex: number) {
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', spacerIndex.toString());
-        event.dataTransfer.setData('application/spacer', 'true');
-        
-        // Create a custom drag image
-        const dragImage = document.createElement('div');
-        dragImage.textContent = '--- SPACER ---';
-        dragImage.style.padding = '4px 8px';
-        dragImage.style.backgroundColor = '#6b7280';
-        dragImage.style.color = 'white';
-        dragImage.style.borderRadius = '4px';
-        dragImage.style.fontSize = '12px';
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-1000px';
-        document.body.appendChild(dragImage);
-        event.dataTransfer.setDragImage(dragImage, 0, 0);
-        
-        // Clean up drag image after a short delay
-        setTimeout(() => {
-          document.body.removeChild(dragImage);
-        }, 0);
-      }
+      handleDragStart(event, [spacerIndex], 'spacer');
     }
 
     function handleSpacerDragOver(event: DragEvent, spacerIndex: number) {
@@ -289,39 +336,13 @@
     }
 
     function handleSpacerDrop(event: DragEvent, spacerIndex: number) {
-      event.preventDefault();
+      const dragPosition = spacerDraggedOverPosition[spacerIndex];
+      const position = dragPosition === 'above' ? 'before' : 'after';
       
-      if (event.dataTransfer) {
-        const fromIndexStr = event.dataTransfer.getData('text/plain');
-        const fromIndex = parseInt(fromIndexStr, 10);
-        const isSpacer = event.dataTransfer.getData('application/spacer') === 'true';
-        const isGroup = event.dataTransfer.getData('application/group') === 'true';
-        
-        if (!isNaN(fromIndex) && fromIndex !== spacerIndex) {
-          // Calculate the target index based on drop position
-          let toIndex = spacerIndex;
-          const dragPosition = spacerDraggedOverPosition[spacerIndex];
-          if (dragPosition === 'below' || 
-              (dragPosition === null && event.clientY > (event.currentTarget as HTMLElement).getBoundingClientRect().top + (event.currentTarget as HTMLElement).getBoundingClientRect().height / 2)) {
-            toIndex = spacerIndex + 1;
-          }
-          
-          // Adjust for the fact that removing an item shifts indices
-          if (fromIndex < toIndex) {
-            toIndex--;
-          }
-          
-          // Handle the reordering based on item type
-          if (isSpacer || isGroup) {
-            handleGroupReorder({ detail: { fromIndex, toIndex } } as CustomEvent<{ fromIndex: number; toIndex: number }>);
-          } else {
-            handleSignalReorder({ detail: { fromIndex, toIndex } } as CustomEvent<{ fromIndex: number; toIndex: number }>);
-          }
-        }
-      }
+      handleDrop(event, [spacerIndex], position);
       
       spacerDraggedOverPosition[spacerIndex] = null;
-      spacerDraggedOverPosition = { ...spacerDraggedOverPosition }; // Trigger reactivity
+      spacerDraggedOverPosition = { ...spacerDraggedOverPosition };
     }
 
     // Create a map from signal items to their flat index for proper selection tracking
@@ -497,6 +518,7 @@
             <SignalLane
               signal={item as WaveSignal}
               signalIndex={signalIndexMap.get(item) ?? i}
+              treePath={[i]}
               {maxCycles}
               {hscale}
               {isCellSelected}
@@ -505,11 +527,14 @@
               on:rightclick={(e) => handleRightClick(e)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
               on:signalreorder={(e) => handleSignalReorder(e)}
+              on:dragstart={(e) => handleDragStart(e.detail.event, e.detail.path, e.detail.itemType)}
+              on:drop={(e) => handleDrop(e.detail.event, e.detail.targetPath, e.detail.position)}
             />
           {:else if itemType === 'group'}
             <SignalGroup
               group={item as WaveGroup}
               parentIndex={i}
+              treePath={[i]}
               {maxCycles}
               {hscale}
               level={0}
@@ -524,6 +549,8 @@
               on:signalreorder={(e) => handleSignalReorder(e)}
               on:groupreorder={(e) => handleGroupReorder(e)}
               on:movetogroup={(e) => handleMoveToGroup(e)}
+              on:dragstart={(e) => handleDragStart(e.detail.event, e.detail.path, e.detail.itemType)}
+              on:drop={(e) => handleDrop(e.detail.event, e.detail.targetPath, e.detail.position)}
             />
           {:else if itemType === 'spacer'}
             <div class="signal-spacer" 

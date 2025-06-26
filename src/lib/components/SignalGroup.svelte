@@ -13,6 +13,7 @@
     export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
     export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
     export let signalIndexMap: Map<any, number>;
+    export let treePath: number[] = [];
 
     const dispatch = createEventDispatcher<{
       signalchange: { signalIndex: number; newSignal: WaveSignal };
@@ -24,6 +25,8 @@
       signalreorder: { fromIndex: number; toIndex: number };
       groupreorder: { fromIndex: number; toIndex: number };
       movetogroup: { fromIndex: number; toGroupIndex: number; itemType: 'signal' | 'group' | 'spacer' };
+      dragstart: { path: number[]; itemType: 'signal' | 'group' | 'spacer'; event: DragEvent };
+      drop: { targetPath: number[]; position: 'before' | 'after' | 'inside'; event: DragEvent };
     }>();
   
     // Define 20 major colors for round-robin selection
@@ -51,7 +54,7 @@
     ];
 
       $: groupName = group[0];
-  $: groupItems = group.slice(1) as SignalItem[];
+  $: groupItems = (group.slice(1) as SignalItem[]);
   
   // Deterministic color selection based on group name and parent index
   $: groupColorIndex = (groupName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + parentIndex) % BACKGROUND_COLORS.length;
@@ -167,30 +170,9 @@
     // Drag and drop handlers for the group itself
     function handleGroupDragStart(event: DragEvent) {
       isDragging = true;
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', parentIndex.toString());
-        event.dataTransfer.setData('application/group', 'true');
-        // Note: Groups at top level don't have a parent group index, so we don't set it
-        
-        // Create a custom drag image
-        const dragImage = document.createElement('div');
-        dragImage.textContent = `📁 ${groupName}`;
-        dragImage.style.padding = '4px 8px';
-        dragImage.style.backgroundColor = '#3b82f6';
-        dragImage.style.color = 'white';
-        dragImage.style.borderRadius = '4px';
-        dragImage.style.fontSize = '12px';
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-1000px';
-        document.body.appendChild(dragImage);
-        event.dataTransfer.setDragImage(dragImage, 0, 0);
-        
-        // Clean up drag image after a short delay
-        setTimeout(() => {
-          document.body.removeChild(dragImage);
-        }, 0);
-      }
+      
+      // Use the new tree path system
+      dispatch('dragstart', { path: treePath, itemType: 'group', event });
     }
 
     function handleGroupDragEnd(event: DragEvent) {
@@ -463,6 +445,7 @@
               signalIndex={signalIndexMap.get(item) ?? index}
               localIndex={index}
               parentGroupIndex={parentIndex}
+              treePath={[...treePath, index]}
               {maxCycles}
               {hscale}
               {isCellSelected}
@@ -471,11 +454,14 @@
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
               on:signalreorder={handleInternalReorder}
+              on:dragstart={(e) => dispatch('dragstart', e.detail)}
+              on:drop={(e) => dispatch('drop', e.detail)}
             />
           {:else if itemType === 'group'}
             <svelte:self
               group={item as WaveGroup}
               parentIndex={index}
+              treePath={[...treePath, index]}
               {maxCycles}
               {hscale}
               level={level + 1}
@@ -489,6 +475,8 @@
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
               on:signalreorder={handleInternalReorder}
               on:groupreorder={handleInternalReorder}
+              on:dragstart={(e) => dispatch('dragstart', e.detail)}
+              on:drop={(e) => dispatch('drop', e.detail)}
             />
           {:else if itemType === 'spacer'}
             <div class="group-spacer" 

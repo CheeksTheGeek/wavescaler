@@ -12,6 +12,7 @@
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
   export let parentGroupIndex: number | null = null;
   export let localIndex: number | null = null;
+  export let treePath: number[] = [];
 
     const dispatch = createEventDispatcher<{
       signalchange: { signalIndex: number; newSignal: WaveSignal };
@@ -19,6 +20,8 @@
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
       signalreorder: { fromIndex: number; toIndex: number };
+      dragstart: { path: number[]; itemType: 'signal'; event: DragEvent };
+      drop: { targetPath: number[]; position: 'before' | 'after'; event: DragEvent };
     }>();
   
     interface ProcessedCycle {
@@ -385,36 +388,9 @@
     // Drag and drop handlers
     function handleDragStart(event: DragEvent) {
       isDragging = true;
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-        
-        // Use localIndex for internal group operations, signalIndex for top-level operations
-        const indexToUse = (parentGroupIndex !== null && localIndex !== null) ? localIndex : signalIndex;
-        event.dataTransfer.setData('text/plain', indexToUse.toString());
-        
-        // If this signal is inside a group, set the group index
-        if (parentGroupIndex !== null) {
-          event.dataTransfer.setData('application/groupIndex', parentGroupIndex.toString());
-        }
-        
-        // Create a custom drag image
-        const dragImage = document.createElement('div');
-        dragImage.textContent = signal.name;
-        dragImage.style.padding = '4px 8px';
-        dragImage.style.backgroundColor = '#3b82f6';
-        dragImage.style.color = 'white';
-        dragImage.style.borderRadius = '4px';
-        dragImage.style.fontSize = '12px';
-        dragImage.style.position = 'absolute';
-        dragImage.style.top = '-1000px';
-        document.body.appendChild(dragImage);
-        event.dataTransfer.setDragImage(dragImage, 0, 0);
-        
-        // Clean up drag image after a short delay
-        setTimeout(() => {
-          document.body.removeChild(dragImage);
-        }, 0);
-      }
+      
+      // Use the new tree path system for precise identification
+      dispatch('dragstart', { path: treePath, itemType: 'signal', event });
     }
 
     function handleDragEnd(event: DragEvent) {
@@ -440,40 +416,12 @@
 
     function handleDrop(event: DragEvent) {
       event.preventDefault();
+      const position = draggedOverPosition === 'above' ? 'before' : 'after';
+      
+      // Use the new tree path system
+      dispatch('drop', { targetPath: treePath, position, event });
+      
       draggedOverPosition = null;
-      
-      if (event.dataTransfer) {
-        const fromIndexStr = event.dataTransfer.getData('text/plain');
-        const fromIndex = parseInt(fromIndexStr, 10);
-        const isGroup = event.dataTransfer.getData('application/group') === 'true';
-        const isSpacer = event.dataTransfer.getData('application/spacer') === 'true';
-        
-        // Use localIndex for internal group operations, signalIndex for top-level operations
-        const currentIndex = (parentGroupIndex !== null && localIndex !== null) ? localIndex : signalIndex;
-        
-        if (!isNaN(fromIndex) && fromIndex !== currentIndex) {
-          // Calculate the target index based on drop position
-          let toIndex = currentIndex;
-          if (draggedOverPosition === 'below' || 
-              (draggedOverPosition === null && event.clientY > (event.currentTarget as HTMLElement).getBoundingClientRect().top + (event.currentTarget as HTMLElement).getBoundingClientRect().height / 2)) {
-            toIndex = currentIndex + 1;
-          }
-          
-          // Adjust for the fact that removing an item shifts indices
-          if (fromIndex < toIndex) {
-            toIndex--;
-          }
-          
-          // Dispatch appropriate reorder event based on item type
-          if (isGroup || isSpacer) {
-            // For groups and spacers, we still use signalreorder but the parent will handle it appropriately
-            dispatch('signalreorder', { fromIndex, toIndex });
-          } else {
-            dispatch('signalreorder', { fromIndex, toIndex });
-          }
-        }
-      }
-      
       isDragging = false;
     }
 
