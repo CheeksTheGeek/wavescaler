@@ -1,60 +1,21 @@
 <script lang="ts">
   export let maxCycles: number;
   export let hscale: number = 1;
+  export let nameColumnWidth: number = 150;
 
   $: fullCycleWidth = 40 * hscale; // Each cycle gets full 40px width like WaveDrom
   $: totalWidth = maxCycles * fullCycleWidth;
   
-  let gridContainer: HTMLElement;
-  let actualCyclesStartOffset = 0;
-  let measurementAttempts = 0;
-  
-  // Measure the actual position of signal cycles
-  function measureActualLayout() {
-    if (!gridContainer || measurementAttempts > 5) return;
-    measurementAttempts++;
-    
-    // Find the first signal cycle in the DOM
-    const firstSignalLane = document.querySelector('.signal-lane');
-    const firstCycle = firstSignalLane?.querySelector('[data-cycle-index="0"]');
-    
-    if (firstCycle && gridContainer) {
-      const gridRect = gridContainer.getBoundingClientRect();
-      const cycleRect = firstCycle.getBoundingClientRect();
-      const newOffset = cycleRect.left - gridRect.left;
-      
-      // Only update if we got a reasonable measurement
-      if (newOffset > 0 && newOffset < 1000) {
-        actualCyclesStartOffset = newOffset;
-        // console.log('Grid positioning debug:', {
-        //   gridLeft: gridRect.left,
-        //   firstCycleLeft: cycleRect.left,
-        //   calculatedOffset: actualCyclesStartOffset,
-        //   fullCycleWidth,
-        //   attempt: measurementAttempts
-        // });
-      } else {
-        // Retry measurement if we got an unreasonable value
-        setTimeout(() => measureActualLayout(), 50);
-      }
-    } else {
-      // Retry if elements not found
-      setTimeout(() => measureActualLayout(), 50);
-    }
-  }
-  
-  // Measure layout after component mounts and when hscale changes
-  $: if (gridContainer) {
-    measurementAttempts = 0;
-    setTimeout(measureActualLayout, 100);
-  }
+  // Calculate the cycles start offset based on the name column width
+  // The cycles start right after the name column
+  $: cyclesStartOffset = nameColumnWidth;
 </script>
 
-<div class="waveform-grid" bind:this={gridContainer} style="--total-width: {totalWidth}px; --full-cycle-width: {fullCycleWidth}px">
+<div class="waveform-grid" style="--total-width: {totalWidth}px; --full-cycle-width: {fullCycleWidth}px; --name-width: {nameColumnWidth}px">
   <!-- Time scale labels -->
   <div class="time-scale">
     {#each Array(maxCycles) as _, i}
-      <div class="time-tick" style="left: {actualCyclesStartOffset + (i + 0.5) * fullCycleWidth}px">
+      <div class="time-tick" style="left: {cyclesStartOffset + (i + 0.5) * fullCycleWidth}px">
         {i}
       </div>
     {/each}
@@ -62,10 +23,17 @@
   
   <!-- Vertical grid lines -->
   <div class="grid-lines">
+    <!-- Name column separator line -->
+    <div 
+      class="grid-line name-separator" 
+      style="left: {nameColumnWidth}px"
+    ></div>
+    
+    <!-- Cycle grid lines -->
     {#each Array(maxCycles + 1) as _, i}
       <div 
         class="grid-line" 
-        style="left: {actualCyclesStartOffset + i * fullCycleWidth}px"
+        style="left: {cyclesStartOffset + i * fullCycleWidth}px"
         class:major-line={i % 5 === 0}
       ></div>
     {/each}
@@ -128,5 +96,11 @@
   .grid-line.major-line {
     background-color: #d1d5db;
     opacity: 1;
+  }
+
+  .grid-line.name-separator {
+    background-color: #9ca3af;
+    opacity: 1;
+    z-index: 2;
   }
 </style> 

@@ -42,6 +42,20 @@
     sourceType: null,
     sourceItem: null
   };
+
+  // Resizable column state
+  let nameColumnWidth = 150; // Default width
+  let isResizing = false;
+  let resizeStartX = 0;
+  let resizeStartWidth = 0;
+
+  // Load saved width from localStorage on mount
+  if (typeof window !== 'undefined') {
+    const savedWidth = localStorage.getItem('wavescaler-name-column-width');
+    if (savedWidth) {
+      nameColumnWidth = parseInt(savedWidth, 10);
+    }
+  }
   
     // Helper to differentiate SignalItem types
     function getItemType(item: SignalItem): 'signal' | 'group' | 'spacer' | 'unknown' {
@@ -171,6 +185,48 @@
 
     function handleContextMenuClose() {
       contextMenuVisible = false;
+    }
+
+    // Resize handlers
+    function handleResizeStart(event: MouseEvent) {
+      isResizing = true;
+      resizeStartX = event.clientX;
+      resizeStartWidth = nameColumnWidth;
+      
+      // Prevent text selection during resize
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+      
+      // Add global mouse listeners
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+    }
+
+    function handleResizeMove(event: MouseEvent) {
+      if (!isResizing) return;
+      
+      const deltaX = event.clientX - resizeStartX;
+      const newWidth = Math.max(100, Math.min(400, resizeStartWidth + deltaX)); // Min 100px, max 400px
+      nameColumnWidth = newWidth;
+    }
+
+    function handleResizeEnd() {
+      if (!isResizing) return;
+      
+      isResizing = false;
+      
+      // Restore normal cursor and text selection
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      
+      // Remove global listeners
+      document.removeEventListener('mousemove', handleResizeMove);
+      document.removeEventListener('mouseup', handleResizeEnd);
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('wavescaler-name-column-width', nameColumnWidth.toString());
+      }
     }
 
     // New unified drag and drop handling
@@ -489,7 +545,7 @@
     }
   </script>
   
-    <div class="waveform-diagram" style="--hscale: {hscale}">
+    <div class="waveform-diagram" style="--hscale: {hscale}; --name-width: {nameColumnWidth}px">
     <!-- Header Section -->
     {#if config.head?.text}
       <div class="diagram-header">
@@ -507,7 +563,18 @@
     <!-- Main Content Area -->
     <div class="diagram-content" on:wheel={handleWheel}>
       <!-- Time Scale Grid Background -->
-      <WaveformGrid {maxCycles} {hscale} />
+      <WaveformGrid {maxCycles} {hscale} {nameColumnWidth} />
+      
+      <!-- Column Resize Handle -->
+      <div 
+        class="column-resize-handle"
+        class:resizing={isResizing}
+        style="left: {nameColumnWidth - 2}px"
+        on:mousedown={handleResizeStart}
+        role="separator"
+        aria-label="Resize signal name column"
+        title="Drag to resize signal name column"
+      ></div>
       
       <!-- Signal Content -->
       <div class="signal-container">
@@ -603,7 +670,7 @@
   
   <style>
     .waveform-diagram {
-      --name-width: 150px;
+      --name-width: 150px; /* Default, will be overridden by inline style */
       --cycle-width: calc(40px * var(--hscale));
       --lane-height: 40px;
       --grid-color: #e5e5e5;
@@ -747,6 +814,49 @@
       color: #dc2626;
       background-color: #fef2f2;
       border-bottom: 1px solid var(--border-color);
+    }
+
+    /* Column resize handle */
+    .column-resize-handle {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background-color: transparent;
+      cursor: col-resize;
+      z-index: 100;
+      transition: background-color 0.15s ease;
+    }
+
+    .column-resize-handle:hover {
+      background-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .column-resize-handle.resizing {
+      background-color: rgba(59, 130, 246, 0.5);
+    }
+
+    /* Add a subtle visual indicator */
+    .column-resize-handle::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 1px;
+      height: 20px;
+      background-color: #d1d5db;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    .column-resize-handle:hover::after {
+      opacity: 1;
+    }
+
+    .column-resize-handle.resizing::after {
+      opacity: 1;
+      background-color: #3b82f6;
     }
   </style>
   
