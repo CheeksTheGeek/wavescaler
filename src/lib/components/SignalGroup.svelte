@@ -422,10 +422,10 @@
        class:dragging={isDragging}
        class:drag-over-above={draggedOverPosition === 'above'}
        class:drag-over-below={draggedOverPosition === 'below'}
-       style="--level: {level}">
+       style="--level: {level}; --max-cycles: {maxCycles};">
     <!-- Group Header -->
     <div class="group-header" 
-         style="background-color: {groupHeaderColor}; width: calc(var(--name-width) + {maxCycles * 40 * hscale}px);"
+         style="background-color: {groupHeaderColor};"
          draggable="true"
          on:dragstart={handleGroupDragStart}
          on:dragend={handleGroupDragEnd}
@@ -486,7 +486,7 @@
     <!-- Group Content -->
     {#if !isCollapsed}
       <div class="group-content" 
-           style="--group-bg-color: {groupBackgroundColor}; width: calc(var(--name-width) + {maxCycles * 40 * hscale}px);"
+           style="--group-bg-color: {groupBackgroundColor};"
            on:dragover={handleGroupContentDragOver}
            on:drop={handleGroupContentDrop}>
         {#each groupItems as item, index (index)}
@@ -556,7 +556,6 @@
   <style>
     .signal-group {
       --indent: calc(var(--level) * 20px);
-      border-left: 2px solid #e5e7eb;
       transition: all 0.15s ease;
       position: relative;
     }
@@ -597,6 +596,7 @@
       padding-right: 8px;
       cursor: grab;
       transition: background-color 0.15s ease;
+      width: calc(var(--name-width) + var(--cycle-width) * var(--max-cycles));
     }
 
     .group-header:active {
@@ -738,6 +738,7 @@
 
     .group-content {
       background-color: var(--group-bg-color);
+      width: calc(var(--name-width) + var(--cycle-width) * var(--max-cycles));
     }
 
     .group-spacer {
