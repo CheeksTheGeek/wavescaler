@@ -762,12 +762,16 @@
       display: flex;
       align-items: center;
       padding: 0 16px;
+      padding-left: calc(16px + var(--indent)); /* Add indentation via padding */
       font-size: 11px;
       color: #9ca3af;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 500;
       background-color: transparent;
+      border-right: 1px solid var(--border-color); /* Add border like signals */
+      box-sizing: border-box; /* Include padding in width calculation */
+      flex-shrink: 0; /* Don't let it shrink */
     }
 
     .spacer-wave-area {
