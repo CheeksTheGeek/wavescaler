@@ -180,6 +180,51 @@
 		// Note: Lane highlighting is now handled by the global store in the components themselves
 	}
 
+	function handleGroupSelection(event: CustomEvent<{ groupName: string; signalIndices: number[]; shiftKey: boolean }>) {
+		const { groupName, signalIndices, shiftKey } = event.detail;
+		
+		// Create selection for all cycles in all signals within the group
+		const groupSelection: CellSelection[] = [];
+		
+		for (const signalIndex of signalIndices) {
+			const signal = getSignalAtIndex(signalIndex);
+			if (signal) {
+				// Select all cycles in this signal's wave
+				const waveLength = signal.wave.length;
+				for (let cycleIndex = 0; cycleIndex < Math.max(waveLength, 8); cycleIndex++) {
+					groupSelection.push({
+						signalIndex,
+						cycleIndex,
+						signalName: signal.name
+					});
+				}
+			}
+		}
+
+		if (shiftKey && selectedCells.length > 0) {
+			// Toggle group selection - if any signal in the group is selected, remove all group signals
+			const existingSignalIndices = new Set(selectedCells.map(cell => cell.signalIndex));
+			const hasAnyGroupSignal = signalIndices.some(index => existingSignalIndices.has(index));
+			
+			if (hasAnyGroupSignal) {
+				// Remove all group signals from selection
+				selectedCells = selectedCells.filter(cell => !signalIndices.includes(cell.signalIndex));
+			} else {
+				// Add all group signals to selection
+				selectedCells = [...selectedCells, ...groupSelection];
+			}
+		} else {
+			// Replace selection with this group
+			selectedCells = groupSelection;
+			lastSelectedCell = groupSelection[0] || null;
+		}
+		
+		// Force reactivity update
+		selectedCells = selectedCells;
+		
+		// Note: Lane highlighting is handled by the global store in the components
+	}
+
 	function getSignalAtIndex(index: number): WaveSignal | null {
 		// Helper to get signal from potentially nested structure
 		let currentIndex = 0;
@@ -486,6 +531,7 @@
 					on:structurechange={handleStructureChange}
 					on:cellselection={handleCellSelection}
 					on:laneselection={handleLaneSelection}
+					on:groupselection={handleGroupSelection}
 					on:cyclechange={handleCycleChange}
 					on:transitionclick={handleTransitionClick}
 					{isCellSelected}

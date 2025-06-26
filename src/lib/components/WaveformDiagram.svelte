@@ -16,6 +16,7 @@
     structurechange: { newWaveJson: WaveJson };
     cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
     laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
+    groupselection: { groupName: string; signalIndices: number[]; shiftKey: boolean };
     cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
     transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
   }>();
@@ -570,6 +571,7 @@
               on:groupchange={(e) => handleGroupChange(e)}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:laneselection={(e) => dispatch('laneselection', e.detail)}
+              on:groupselection={(e) => dispatch('groupselection', e.detail)}
               on:rightclick={(e) => handleRightClick(e)}
               on:signalreorder={(e) => handleSignalReorder(e)}
               on:groupreorder={(e) => handleGroupReorder(e)}

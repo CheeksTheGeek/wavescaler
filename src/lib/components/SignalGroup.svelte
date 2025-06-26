@@ -2,7 +2,7 @@
     import type { WaveGroup, SignalItem, WaveSignal } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
     import { createEventDispatcher } from 'svelte';
-    import { selectedLanes } from '$lib/lane-selection-store';
+    import { selectedLanes, toggleLane } from '$lib/lane-selection-store';
     // Recursive type for svelte:self, not strictly needed for TS but good for clarity
     // type SignalGroupComponent = typeof import('./SignalGroup.svelte').default;
   
@@ -22,6 +22,7 @@
       groupchange: { groupIndex: number; newGroup: WaveGroup };
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
       laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
+      groupselection: { groupName: string; signalIndices: number[]; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
       signalreorder: { fromIndex: number; toIndex: number };
@@ -42,7 +43,6 @@
       'rgba(168, 85, 247, 0.1)',   // Violet
       'rgba(34, 197, 94, 0.1)',    // Emerald
       'rgba(249, 115, 22, 0.1)',   // Orange
-      'rgba(156, 163, 175, 0.1)',  // Gray
       'rgba(6, 182, 212, 0.1)',    // Cyan
       'rgba(132, 204, 22, 0.1)',   // Lime
       'rgba(217, 119, 6, 0.1)',    // Amber
@@ -246,6 +246,57 @@
       } else {
         // Regular click: Add signal
         addSignalToGroup();
+      }
+    }
+
+    // Function to collect all signal indices within this group (including nested groups)
+    function collectGroupSignalIndices(): number[] {
+      const indices: number[] = [];
+      
+      function processItems(items: SignalItem[]) {
+        for (const item of items) {
+          if (Array.isArray(item)) {
+            // It's a nested group - process its children recursively
+            processItems(item.slice(1) as SignalItem[]);
+          } else if (item && typeof item === 'object' && 'name' in item) {
+            // It's a signal - get its index from the map
+            const signalIndex = signalIndexMap.get(item);
+            if (signalIndex !== undefined) {
+              indices.push(signalIndex);
+            }
+          }
+          // Skip spacers and unknown items
+        }
+      }
+      
+      processItems(groupItems);
+      return indices;
+    }
+
+    function handleGroupSelection(event: Event) {
+      event.stopPropagation(); // Prevent drag start
+      const mouseEvent = event as MouseEvent | KeyboardEvent;
+      const shiftKey = 'shiftKey' in mouseEvent ? mouseEvent.shiftKey : false;
+      
+      // Collect all signal indices in this group
+      const signalIndices = collectGroupSignalIndices();
+      
+      if (signalIndices.length > 0) {
+        // Update global store immediately for instant visual feedback
+        if (shiftKey) {
+          // Toggle all signals in the group
+          signalIndices.forEach(index => toggleLane(index));
+        } else {
+          // Clear all other selections and select only this group's signals
+          selectedLanes.set(new Set(signalIndices));
+        }
+        
+        // Dispatch event for compatibility with existing selection logic
+        dispatch('groupselection', {
+          groupName,
+          signalIndices,
+          shiftKey
+        });
       }
     }
 
@@ -484,7 +535,13 @@
           />
         {:else}
           <div class="group-name-display">
-            <span class="group-name-text">{groupName}</span>
+            <span class="group-name-text" 
+                  on:click={handleGroupSelection}
+                  title="Click to select entire group"
+                  role="button"
+                  tabindex="0"
+                  on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleGroupSelection(e); }}
+            >{groupName}</span>
             <button 
               class="edit-group-name-button"
               on:click={startEditingName}
@@ -554,6 +611,7 @@
               on:groupchange={handleNestedGroupChange}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:laneselection={(e) => dispatch('laneselection', e.detail)}
+              on:groupselection={(e) => dispatch('groupselection', e.detail)}
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
               on:signalreorder={handleInternalReorder}
@@ -705,6 +763,19 @@
       text-overflow: ellipsis;
       white-space: nowrap;
       min-width: 0; /* Allow text to shrink */
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 3px;
+      transition: background-color 0.15s ease;
+    }
+
+    .group-name-text:hover {
+      background-color: rgba(59, 130, 246, 0.1);
+    }
+
+    .group-name-text:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 1px;
     }
 
     .edit-group-name-button {
