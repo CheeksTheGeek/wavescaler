@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { WaveGroup, SignalItem, WaveSignal, WaveSpacer } from '$lib/wavejson-types';
+    import type { WaveGroup, SignalItem, WaveSignal } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
     import { createEventDispatcher } from 'svelte';
     import { selectedLanes } from '$lib/lane-selection-store';
@@ -526,8 +526,6 @@
             <SignalLane
               signal={item as WaveSignal}
               signalIndex={signalIndexMap.get(item) ?? index}
-              localIndex={index}
-              parentGroupIndex={parentIndex}
               treePath={[...treePath, index]}
               {maxCycles}
               {hscale}

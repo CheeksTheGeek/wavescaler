@@ -5,7 +5,7 @@
 	import SelectionPopup from '$lib/components/SelectionPopup.svelte';
 	import SelectionToolbar from '$lib/components/SelectionToolbar.svelte';
 	import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
-	import { selectedLanes, clearLaneSelection, setSelectedLanes } from '$lib/lane-selection-store';
+	import { clearLaneSelection } from '$lib/lane-selection-store';
 
 	// Sample WaveJSON data for demonstration
 	let waveformData: WaveJson = {
@@ -91,10 +91,7 @@
 	}
 
 	function handleStructureChange(event: CustomEvent<{ newWaveJson: WaveJson }>) {
-		// console.log('Main page handleStructureChange:', event.detail.newWaveJson);
 		waveformData = event.detail.newWaveJson;
-		// Force reactivity by triggering a re-assignment
-		waveformData = waveformData;
 	}
 
 
@@ -116,27 +113,22 @@
 			signalName: signal.name
 		};
 
-		// console.log('Cell selection:', { signalIndex, cycleIndex, shiftKey, signalName: signal.name });
-
 		if (shiftKey) {
 			// Multi-selection mode
 			isShiftSelecting = true;
 			if (lastSelectedCell) {
 				// Extend selection from last selected cell to new cell
 				selectedCells = getSelectionRange(lastSelectedCell, newCell);
-				// console.log('Extended selection to:', selectedCells.length, 'cells');
 			} else {
 				// No previous selection, start multi-selection with this cell
 				selectedCells = [newCell];
 				lastSelectedCell = newCell;
-				// console.log('Started multi-selection with:', newCell);
 			}
 		} else {
 			// Single selection mode - replace any existing selection
 			isShiftSelecting = false;
 			selectedCells = [newCell];
 			lastSelectedCell = newCell;
-			// console.log('Single selection:', newCell);
 		}
 		
 		// Force reactivity update
@@ -253,28 +245,7 @@
 		);
 	};
 
-	// Helper function to determine if an entire lane is selected
-	$: isLaneSelected = (signalIndex: number): boolean => {
-		if (selectedCells.length === 0) return false;
-		
-		// Get all cycles for this signal
-		const signal = getSignalAtIndex(signalIndex);
-		if (!signal) return false;
-		
-		const maxCyclesForSignal = Math.max(signal.wave.length, 8);
-		const signalCells = selectedCells.filter(cell => cell.signalIndex === signalIndex);
-		
-		// Check if all cycles are selected
-		if (signalCells.length < maxCyclesForSignal) return false;
-		
-		// Check if we have all consecutive cycles from 0 to max
-		const selectedCycles = new Set(signalCells.map(cell => cell.cycleIndex));
-		for (let i = 0; i < maxCyclesForSignal; i++) {
-			if (!selectedCycles.has(i)) return false;
-		}
-		
-		return true;
-	};
+	// Note: Lane selection is now handled by the global store
 
 	// Generate selection description for popup
 	$: selectionDescription = getSelectionDescription();
@@ -383,12 +354,10 @@
 
 	function copySelection() {
 		// TODO: Implement copy functionality
-		// console.log('Copy selection:', selectedCells);
 	}
 
 	function pasteToSelection() {
 		// TODO: Implement paste functionality
-		// console.log('Paste to selection:', selectedCells);
 	}
 
 	function deleteSelection() {
@@ -397,7 +366,6 @@
 
 	function duplicateSelection() {
 		// TODO: Implement duplicate functionality
-		// console.log('Duplicate selection:', selectedCells);
 	}
 
 	function invertSelection() {
@@ -441,11 +409,7 @@
 	}
 
 	function handleTransitionClick(event: CustomEvent<{ signalIndex: number; fromCycleIndex: number; toCycleIndex: number }>) {
-		const { signalIndex, fromCycleIndex, toCycleIndex } = event.detail;
-		// console.log('Transition clicked:', { signalIndex, fromCycleIndex, toCycleIndex });
-		
 		// Future: implement transition drag functionality
-		// For now, just log the event
 	}
 
 	// Handle clicking outside of cells to clear selection

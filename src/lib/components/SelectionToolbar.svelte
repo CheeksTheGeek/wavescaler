@@ -31,7 +31,7 @@
     aria-label="Selection toolbar with editing actions"
     tabindex="-1"
     on:click|stopPropagation
-    on:keydown={(e) => { if (e.key === 'Escape') dispatch('clear'); }}
+    on:keydown={(e) => { if (e.key === 'Escape') dispatch('clear', {}); }}
   >
     <div class="toolbar-header">
       <h3>Selection Actions</h3>
@@ -67,21 +67,21 @@
 
     <div class="toolbar-section">
       <h4>Edit Actions</h4>
-      <button class="action-btn" on:click={() => dispatch('copy')}>
+      <button class="action-btn" on:click={() => dispatch('copy', {})}>
         <svg width="16" height="16" viewBox="0 0 16 16">
           <rect x="3" y="3" width="8" height="8" stroke="currentColor" stroke-width="1.5" fill="none"/>
           <rect x="5" y="5" width="8" height="8" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
         Copy
       </button>
-      <button class="action-btn" on:click={() => dispatch('paste')}>
+      <button class="action-btn" on:click={() => dispatch('paste', {})}>
         <svg width="16" height="16" viewBox="0 0 16 16">
           <rect x="4" y="2" width="8" height="12" stroke="currentColor" stroke-width="1.5" fill="none" rx="1"/>
           <path d="M6 2 L6 4 L10 4 L10 2" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
         Paste
       </button>
-      <button class="action-btn" on:click={() => dispatch('duplicate')}>
+      <button class="action-btn" on:click={() => dispatch('duplicate', {})}>
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M6 2 L10 2 M8 2 L8 6 M6 14 L10 14 M8 10 L8 14" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
@@ -91,7 +91,7 @@
 
     <div class="toolbar-section">
       <h4>Transform</h4>
-      <button class="action-btn" on:click={() => dispatch('invert')}>
+      <button class="action-btn" on:click={() => dispatch('invert', {})}>
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M2 8 L14 8 M8 2 L8 14" stroke="currentColor" stroke-width="1.5" fill="none"/>
           <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5" fill="none"/>
@@ -101,13 +101,13 @@
     </div>
 
     <div class="toolbar-section">
-      <button class="action-btn danger" on:click={() => dispatch('delete')}>
+      <button class="action-btn danger" on:click={() => dispatch('delete', {})}>
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M3 6 L13 6 M5 6 L5 13 L11 13 L11 6 M7 3 L9 3" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
         Delete
       </button>
-      <button class="action-btn secondary" on:click={() => dispatch('clear')}>
+      <button class="action-btn secondary" on:click={() => dispatch('clear', {})}>
         <svg width="16" height="16" viewBox="0 0 16 16">
           <path d="M10.5 5.5 L5.5 10.5 M5.5 5.5 L10.5 10.5" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>

@@ -11,8 +11,6 @@
   export let maxCycles: number;
   export let hscale: number = 1;
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
-  export let parentGroupIndex: number | null = null;
-  export let localIndex: number | null = null;
   export let treePath: number[] = [];
 
   // Use global store for immediate lane selection updates

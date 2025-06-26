@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, WaveSpacer, JsonMl, TreePath, DragDropContext } from '$lib/wavejson-types';
+    import type { WaveJson, SignalItem, WaveSignal, WaveGroup, TreePath } from '$lib/wavejson-types';
     import { WaveTreeManager } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
     import SignalGroup from './SignalGroup.svelte';
@@ -114,9 +114,6 @@
     // Configuration - make reactive
     $: config = waveJson.config || {};
     $: hscale = config.hscale ?? 1;
-    const laneHeight = 20; // Height of a single signal lane (can be part of config later)
-    const nameWidth = 150; // Width allocated for signal/group names
-    const wavePadding = 5; // Padding
     $: cycleWidth = 40 * hscale; // Width of a single cycle char
   
     let maxCycles = 0;
@@ -500,94 +497,7 @@
       // If no modifier key, allow normal vertical scrolling
     }
   
-        $: totalWaveformWidth = maxCycles * cycleWidth;
-    $: svgWidth = nameWidth + totalWaveformWidth + wavePadding * 2;
-
-    let calculatedTotalSvgHeight = 0;
-    $: headHeight = config.head?.text ? 40 : 0;
-    $: footHeight = config.foot?.text ? 40 : 0;
-  
-    function calculateHeightRecursive(items: SignalItem[], level: number): number {
-      let height = 0;
-      items.forEach(item => {
-        const type = getItemType(item);
-        if (type === 'signal') {
-          height += laneHeight;
-        } else if (type === 'spacer') {
-          height += laneHeight / 1.5; // Spacers take less height
-        } else if (type === 'group') {
-          height += laneHeight; // For group label itself
-          height += calculateHeightRecursive((item as WaveGroup).slice(1) as SignalItem[], level + 1);
-        }
-      });
-      return height;
-    }
-  
-    $: calculatedTotalSvgHeight = headHeight + calculateHeightRecursive(waveJson.signal, 0) + footHeight;
-    
-    // Calculate Y positions for each item without reactive mutations
-    function getYPositionForItem(itemIndex: number): number {
-      let yPos = headHeight; // Start drawing signals below the head
-      
-      for (let i = 0; i < itemIndex; i++) {
-        const item = waveJson.signal[i];
-        const type = getItemType(item);
-        
-        if (type === 'signal') {
-          yPos += laneHeight;
-        } else if (type === 'spacer') {
-          yPos += laneHeight / 1.5;
-        } else if (type === 'group') {
-          yPos += laneHeight; // For group label
-          yPos += calculateHeightRecursive((item as WaveGroup).slice(1) as SignalItem[], 1);
-        } else if (type === 'unknown') {
-          yPos += laneHeight;
-        }
-      }
-      
-      return yPos;
-    }
-  
-    // --- JsonML Rendering (Simplified) ---
-    function renderJsonMlToSvg(ml: JsonMl | undefined, x: number, y: number): string {
-      if (!ml) return '';
-      if (typeof ml === 'string') {
-        return `<text x="${x}" y="${y}" dominant-baseline="middle">${ml}</text>`;
-      }
-  
-      if (Array.isArray(ml)) {
-        const tagName = ml[0] as string;
-        let attributesObj: Record<string, any> = {};
-        let children: Array<JsonMl | string> = [];
-  
-        if (ml.length > 1 && typeof ml[1] === 'object' && !Array.isArray(ml[1])) {
-          attributesObj = ml[1] as Record<string, any>;
-          children = ml.slice(2) as Array<JsonMl | string>;
-        } else {
-          children = ml.slice(1) as Array<JsonMl | string>;
-        }
-  
-        const attributesStr = Object.entries(attributesObj)
-          .map(([key, value]) => `${key}="${String(value).replace(/"/g, '&quot;')}"`)
-          .join(' ');
-  
-        const childrenSvg = children.map((child, index) => {
-          // Basic handling for nested tspans, assuming they don't alter x,y significantly themselves
-          // or use dx, dy which is more complex. For simplicity, we pass parent x,y.
-          // A real JsonML to SVG would need more sophisticated coordinate management.
-          if (typeof child === 'string') return child;
-          return renderJsonMlToSvg(child, 0, 0); // dx/dy would be relative if used in tspan
-        }).join('');
-  
-        // For tspans, x and y might be relative to the parent text element.
-        // Here we assume top-level text elements or tspans that are self-contained.
-        if (tagName === 'text') {
-          return `<text x="${x}" y="${y}" ${attributesStr}>${childrenSvg}</text>`;
-        }
-        return `<${tagName} ${attributesStr}>${childrenSvg}</${tagName}>`;
-      }
-      return '';
-    }
+    // Note: SVG export functionality can be added here if needed in the future
   </script>
   
     <div class="waveform-diagram" style="--hscale: {hscale}; --name-width: {nameColumnWidth}px">

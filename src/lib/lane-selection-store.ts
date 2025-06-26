@@ -4,22 +4,6 @@ import { writable } from 'svelte/store';
 export const selectedLanes = writable<Set<number>>(new Set());
 
 // Helper functions for immediate lane selection
-export function selectLane(signalIndex: number) {
-  selectedLanes.update(lanes => {
-    const newLanes = new Set(lanes);
-    newLanes.add(signalIndex);
-    return newLanes;
-  });
-}
-
-export function deselectLane(signalIndex: number) {
-  selectedLanes.update(lanes => {
-    const newLanes = new Set(lanes);
-    newLanes.delete(signalIndex);
-    return newLanes;
-  });
-}
-
 export function toggleLane(signalIndex: number) {
   selectedLanes.update(lanes => {
     const newLanes = new Set(lanes);
@@ -34,10 +18,6 @@ export function toggleLane(signalIndex: number) {
 
 export function clearLaneSelection() {
   selectedLanes.set(new Set());
-}
-
-export function setSelectedLanes(signalIndices: number[]) {
-  selectedLanes.set(new Set(signalIndices));
 }
 
 // Helper to check if a lane is selected (for use in components)
