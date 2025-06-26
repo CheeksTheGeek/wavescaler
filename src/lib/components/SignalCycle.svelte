@@ -143,12 +143,17 @@
       </div>
     {:else if cycleType === 'x'}
       <div class="x-pattern">
-        <!-- Diagonal hatching background pattern -->
+        <!-- Background fill pattern with opacity for grid transparency -->
+        <div class="x-pattern-fill"></div>
+        <!-- Signal line borders with full opacity -->
         <div class="x-top-border"></div>
         <div class="x-bottom-border"></div>
       </div>
     {:else if cycleType === 'z'}
       <div class="z-line">
+        <!-- Background fill pattern with opacity for grid transparency -->
+        <div class="z-line-fill"></div>
+        <!-- Signal line borders with full opacity -->
         <div class="z-top-border"></div>
         <div class="z-bottom-border"></div>
       </div>
@@ -375,21 +380,28 @@
     top: var(--signal-line-y);
     left: var(--signal-line-left);
     transform: translateY(-50%);
+  }
+
+  .x-pattern-fill {
+    position: absolute;
+    width: 100%;
+    height: 100%;
     background-image: 
       radial-gradient(circle at 25% 25%, #9ca3af 0.5px, transparent 0.5px),
       radial-gradient(circle at 75% 25%, #9ca3af 0.5px, transparent 0.5px),
       radial-gradient(circle at 25% 75%, #9ca3af 0.5px, transparent 0.5px),
       radial-gradient(circle at 75% 75%, #9ca3af 0.5px, transparent 0.5px);
     background-size: 6px 6px;
-    opacity: 0.6;
+    opacity: 0.6; /* Keep opacity for grid transparency */
   }
 
   .x-top-border, .x-bottom-border {
     position: absolute;
-    width: var(--signal-line-width);
+    width: 100%;
     height: 2px;
     background-color: #2563eb;
     left: 0;
+    opacity: 1; /* Ensure full opacity for signal lines */
   }
 
   .x-top-border {
@@ -408,6 +420,12 @@
     top: var(--signal-line-y);
     left: var(--signal-line-left);
     transform: translateY(-50%);
+  }
+
+  .z-line-fill {
+    position: absolute;
+    width: 100%;
+    height: 100%;
     background-image: 
       repeating-linear-gradient(
         90deg,
@@ -416,15 +434,16 @@
         #f59e0b 4px,
         #f59e0b 6px
       );
-    opacity: 0.8;
+    opacity: 0.8; /* Keep opacity for grid transparency */
   }
 
   .z-top-border, .z-bottom-border {
     position: absolute;
-    width: var(--signal-line-width);
+    width: 100%;
     height: 2px;
     background-color: #2563eb;
     left: 0;
+    opacity: 1; /* Ensure full opacity for signal lines */
   }
 
   .z-top-border {
