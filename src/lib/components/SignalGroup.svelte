@@ -96,6 +96,41 @@
     return checkGroupForSelectedLanes(groupItems);
   })();
 
+  // Function to collect all signal indices within this group (including nested groups)
+  function collectGroupSignalIndices(): number[] {
+    const indices: number[] = [];
+    
+    function processItems(items: SignalItem[]) {
+      for (const item of items) {
+        if (Array.isArray(item)) {
+          // It's a nested group - process its children recursively
+          processItems(item.slice(1) as SignalItem[]);
+        } else if (item && typeof item === 'object' && 'name' in item) {
+          // It's a signal - get its index from the map
+          const signalIndex = signalIndexMap.get(item);
+          if (signalIndex !== undefined) {
+            indices.push(signalIndex);
+          }
+        }
+        // Skip spacers and unknown items
+      }
+    }
+    
+    processItems(groupItems);
+    return indices;
+  }
+
+  // Check if ALL signals in this group are selected (for unified group selection styling)
+  $: isGroupFullySelected = (() => {
+    if ($selectedLanes.size === 0) return false;
+    
+    const allGroupSignalIndices = collectGroupSignalIndices();
+    if (allGroupSignalIndices.length === 0) return false;
+    
+    // Check if every signal in the group is selected
+    return allGroupSignalIndices.every(index => $selectedLanes.has(index));
+  })();
+
     let isCollapsed = false;
     let isEditingName = false;
     let nameInput = '';
@@ -249,29 +284,7 @@
       }
     }
 
-    // Function to collect all signal indices within this group (including nested groups)
-    function collectGroupSignalIndices(): number[] {
-      const indices: number[] = [];
-      
-      function processItems(items: SignalItem[]) {
-        for (const item of items) {
-          if (Array.isArray(item)) {
-            // It's a nested group - process its children recursively
-            processItems(item.slice(1) as SignalItem[]);
-          } else if (item && typeof item === 'object' && 'name' in item) {
-            // It's a signal - get its index from the map
-            const signalIndex = signalIndexMap.get(item);
-            if (signalIndex !== undefined) {
-              indices.push(signalIndex);
-            }
-          }
-          // Skip spacers and unknown items
-        }
-      }
-      
-      processItems(groupItems);
-      return indices;
-    }
+
 
     function handleGroupSelection(event: Event) {
       event.stopPropagation(); // Prevent drag start
@@ -505,7 +518,8 @@
        style="--level: {level}; --max-cycles: {maxCycles};">
     <!-- Group Header -->
     <div class="group-header" 
-         style="background-color: {groupHeaderColor};"
+         class:group-fully-selected={isGroupFullySelected}
+         style="background-color: {isGroupFullySelected ? 'rgba(59, 130, 246, 0.2)' : groupHeaderColor};"
          draggable="true"
          on:dragstart={handleGroupDragStart}
          on:dragend={handleGroupDragEnd}
@@ -573,6 +587,7 @@
     {#if !isCollapsed}
       <div class="group-content" 
            class:has-selected-lanes={hasSelectedLanes}
+           class:group-fully-selected={isGroupFullySelected}
            style="--group-bg-color: {groupBackgroundColor};"
            on:dragover={handleGroupContentDragOver}
            on:drop={handleGroupContentDrop}>
@@ -693,6 +708,12 @@
 
     .group-header:hover {
       background-color: rgba(59, 130, 246, 0.05);
+    }
+
+    .group-header.group-fully-selected {
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6);
+      border-radius: 6px 6px 0 0;
+      z-index: 10;
     }
 
     .group-name-container {
@@ -855,6 +876,26 @@
     .group-content :global(.signal-lane.lane-selected) {
       position: relative;
       z-index: 10;
+    }
+
+    /* Unified group selection styling */
+    .group-content.group-fully-selected {
+      background-color: rgba(59, 130, 246, 0.1) !important;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6);
+      border-radius: 0 0 6px 6px;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* Hide individual lane selection borders when group is fully selected */
+    .group-content.group-fully-selected :global(.signal-lane.lane-selected) {
+      box-shadow: none !important;
+      background-color: transparent !important;
+    }
+
+    /* Ensure group selection has a unified border */
+    .signal-group:has(.group-fully-selected) {
+      position: relative;
     }
 
     .group-spacer {
