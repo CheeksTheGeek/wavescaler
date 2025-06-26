@@ -142,6 +142,49 @@
 		selectedCells = selectedCells;
 	}
 
+	function handleLaneSelection(event: CustomEvent<{ signalIndex: number; signalName: string; shiftKey: boolean }>) {
+		const { signalIndex, signalName, shiftKey } = event.detail;
+		
+		// Create selection for all cycles in this lane
+		const laneSelection: CellSelection[] = [];
+		
+		// Calculate the maximum cycles for this signal
+		const signal = getSignalAtIndex(signalIndex);
+		if (!signal) {
+			console.warn('Could not find signal at index:', signalIndex);
+			return;
+		}
+		
+		// Select all cycles in the signal's wave
+		const waveLength = signal.wave.length;
+		for (let cycleIndex = 0; cycleIndex < Math.max(waveLength, 8); cycleIndex++) {
+			laneSelection.push({
+				signalIndex,
+				cycleIndex,
+				signalName
+			});
+		}
+
+		if (shiftKey && selectedCells.length > 0) {
+			// Add to existing selection
+			const existingSignalIndices = new Set(selectedCells.map(cell => cell.signalIndex));
+			if (existingSignalIndices.has(signalIndex)) {
+				// Remove this signal's cells if already selected
+				selectedCells = selectedCells.filter(cell => cell.signalIndex !== signalIndex);
+			} else {
+				// Add this signal's cells to selection
+				selectedCells = [...selectedCells, ...laneSelection];
+			}
+		} else {
+			// Replace selection with this lane
+			selectedCells = laneSelection;
+			lastSelectedCell = laneSelection[0] || null;
+		}
+		
+		// Force reactivity update
+		selectedCells = selectedCells;
+	}
+
 	function getSignalAtIndex(index: number): WaveSignal | null {
 		// Helper to get signal from potentially nested structure
 		let currentIndex = 0;
@@ -204,6 +247,29 @@
 		return selectedCells.some(cell => 
 			cell.signalIndex === signalIndex && cell.cycleIndex === cycleIndex
 		);
+	};
+
+	// Helper function to determine if an entire lane is selected
+	$: isLaneSelected = (signalIndex: number): boolean => {
+		if (selectedCells.length === 0) return false;
+		
+		// Get all cycles for this signal
+		const signal = getSignalAtIndex(signalIndex);
+		if (!signal) return false;
+		
+		const maxCyclesForSignal = Math.max(signal.wave.length, 8);
+		const signalCells = selectedCells.filter(cell => cell.signalIndex === signalIndex);
+		
+		// Check if all cycles are selected
+		if (signalCells.length < maxCyclesForSignal) return false;
+		
+		// Check if we have all consecutive cycles from 0 to max
+		const selectedCycles = new Set(signalCells.map(cell => cell.cycleIndex));
+		for (let i = 0; i < maxCyclesForSignal; i++) {
+			if (!selectedCycles.has(i)) return false;
+		}
+		
+		return true;
 	};
 
 	// Generate selection description for popup
@@ -451,9 +517,11 @@
 					on:signalchange={handleSignalChange}
 					on:structurechange={handleStructureChange}
 					on:cellselection={handleCellSelection}
+					on:laneselection={handleLaneSelection}
 					on:cyclechange={handleCycleChange}
 					on:transitionclick={handleTransitionClick}
 					{isCellSelected}
+					{isLaneSelected}
 				/>
 			</div>
 		</div>

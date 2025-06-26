@@ -14,6 +14,8 @@
   export let isSelected: boolean = false;
   export let hasLeftTransition: boolean = false;
   export let hasRightTransition: boolean = false;
+  export let hasReducedLeftBorder: boolean = false;
+  export let hasReducedRightBorder: boolean = false;
 
   const dispatch = createEventDispatcher<{
     cyclechange: { cycleIndex: number; newChar: string };
@@ -115,6 +117,8 @@
   class="signal-cycle {cycleType}"
   class:interactive={cycle.isInteractive}
   class:selected={isSelected}
+  class:reduced-left-border={hasReducedLeftBorder}
+  class:reduced-right-border={hasReducedRightBorder}
   style="
     width: {cycleWidth}px;
     --signal-line-y: {signalLinePixelPos}px;
@@ -230,6 +234,30 @@
     background-color: rgba(59, 130, 246, 0.3) !important;
     box-shadow: 0 0 0 2px #3b82f6;
     z-index: 10;
+  }
+
+  /* Reduced border styling for consecutive selections */
+  .signal-cycle.selected.reduced-left-border {
+    box-shadow: 
+      0 2px 0 0 #3b82f6,      /* top */
+      0 -2px 0 0 #3b82f6,     /* bottom */
+      2px 0 0 0 #3b82f6;      /* right */
+    /* left border removed */
+  }
+
+  .signal-cycle.selected.reduced-right-border {
+    box-shadow: 
+      0 2px 0 0 #3b82f6,      /* top */
+      0 -2px 0 0 #3b82f6,     /* bottom */
+      -2px 0 0 0 #3b82f6;     /* left */
+    /* right border removed */
+  }
+
+  .signal-cycle.selected.reduced-left-border.reduced-right-border {
+    box-shadow: 
+      0 2px 0 0 #3b82f6,      /* top */
+      0 -2px 0 0 #3b82f6;     /* bottom */
+    /* left and right borders removed */
   }
 
   .signal-visual {

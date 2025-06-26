@@ -10,6 +10,7 @@
   export let maxCycles: number;
   export let hscale: number = 1;
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+  export let isLaneSelected: boolean = false;
   export let parentGroupIndex: number | null = null;
   export let localIndex: number | null = null;
   export let treePath: number[] = [];
@@ -17,6 +18,7 @@
     const dispatch = createEventDispatcher<{
       signalchange: { signalIndex: number; newSignal: WaveSignal };
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
+      laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
       signalreorder: { fromIndex: number; toIndex: number };
@@ -336,6 +338,32 @@
       }
     }
 
+    function handleLaneSelection(event: Event) {
+      event.stopPropagation(); // Prevent drag start
+      const mouseEvent = event as MouseEvent | KeyboardEvent;
+      const shiftKey = 'shiftKey' in mouseEvent ? mouseEvent.shiftKey : false;
+      
+      dispatch('laneselection', {
+        signalIndex,
+        signalName: signal.name,
+        shiftKey
+      });
+    }
+
+    // Helper function to determine if a cell should show reduced internal borders
+    function hasReducedBorders(cycleIndex: number): { left: boolean; right: boolean } {
+      const isCurrentSelected = isCellSelected(signalIndex, cycleIndex);
+      if (!isCurrentSelected) return { left: false, right: false };
+      
+      const isPrevSelected = cycleIndex > 0 ? isCellSelected(signalIndex, cycleIndex - 1) : false;
+      const isNextSelected = cycleIndex < maxCycles - 1 ? isCellSelected(signalIndex, cycleIndex + 1) : false;
+      
+      return {
+        left: isPrevSelected, // Reduce left border if previous cell is selected
+        right: isNextSelected  // Reduce right border if next cell is selected
+      };
+    }
+
     function handleTransitionClick(event: CustomEvent<{ fromCycleIndex: number; toCycleIndex: number }>) {
       dispatch('transitionclick', {
         signalIndex,
@@ -518,6 +546,7 @@
   
   <div class="signal-lane" 
        class:dragging={isDragging}
+       class:lane-selected={isLaneSelected}
        class:drag-over-above={draggedOverPosition === 'above'}
        class:drag-over-below={draggedOverPosition === 'below'}
        style="--hscale: {hscale}; --cycle-height: 40px;">
@@ -540,7 +569,13 @@
         />
       {:else}
         <div class="signal-name-display">
-          <span class="signal-name-text">{signal.name}</span>
+          <span class="signal-name-text" 
+                on:click={handleLaneSelection}
+                title="Click to select entire lane"
+                role="button"
+                tabindex="0"
+                on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLaneSelection(e); }}
+          >{signal.name}</span>
           <button 
             class="edit-name-button"
             on:click={startEditingName}
@@ -563,6 +598,7 @@
         {@const nextCycle = index < cycles.length - 1 ? cycles[index + 1] : null}
         {@const hasLeftTransition = prevCycle ? needsTransition(prevCycle, cycle) : false}
         {@const hasRightTransition = nextCycle ? needsTransition(cycle, nextCycle) : false}
+        {@const reducedBorders = hasReducedBorders(cycle.cycleIndex)}
         
         <!-- Render the cycle -->
         <SignalCycle
@@ -572,6 +608,8 @@
           {isSelected}
           {hasLeftTransition}
           {hasRightTransition}
+          hasReducedLeftBorder={reducedBorders.left}
+          hasReducedRightBorder={reducedBorders.right}
           on:cyclechange={(e) => handleCycleChange(e.detail.cycleIndex, e.detail.newChar)}
           on:bulkcyclechange={(e) => handleBulkCycleChange(e.detail.startIndex, e.detail.endIndex, e.detail.newChar)}
           on:cellselection={(e) => dispatch('cellselection', e.detail)}
@@ -657,6 +695,24 @@
       background-color: #3b82f6;
       z-index: 10;
     }
+
+    /* Lane selection highlighting */
+    .signal-lane.lane-selected {
+      background-color: rgba(59, 130, 246, 0.15) !important;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
+      border-radius: 4px;
+      z-index: 5;
+    }
+
+    .signal-lane.lane-selected .signal-name-container {
+      background-color: rgba(59, 130, 246, 0.2) !important;
+      border-radius: 4px 0 0 4px;
+    }
+
+    .signal-lane.lane-selected .signal-cycles {
+      background-color: rgba(59, 130, 246, 0.1);
+      border-radius: 0 4px 4px 0;
+    }
   
     .signal-name-container {
       width: var(--name-width);
@@ -692,6 +748,19 @@
       font-weight: 500;
       flex: 1;
       text-align: left;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 3px;
+      transition: background-color 0.15s ease;
+    }
+
+    .signal-name-text:hover {
+      background-color: rgba(59, 130, 246, 0.1);
+    }
+
+    .signal-name-text:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 1px;
     }
 
     .edit-name-button {

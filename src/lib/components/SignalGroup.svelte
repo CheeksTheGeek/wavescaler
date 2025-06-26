@@ -12,6 +12,7 @@
     export let level: number = 0;
     export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
     export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+    export let isLaneSelected: (signalIndex: number) => boolean = () => false;
     export let signalIndexMap: Map<any, number>;
     export let treePath: number[] = [];
 
@@ -20,6 +21,7 @@
       structurechange: { newWaveJson: any };
       groupchange: { groupIndex: number; newGroup: WaveGroup };
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
+      laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
       signalreorder: { fromIndex: number; toIndex: number };
@@ -32,7 +34,6 @@
     // Define 20 major colors for round-robin selection
     const BACKGROUND_COLORS = [
       'rgba(139, 92, 246, 0.1)',   // Purple
-      'rgba(59, 130, 246, 0.1)',   // Blue
       'rgba(16, 185, 129, 0.1)',   // Green
       'rgba(245, 158, 11, 0.1)',   // Yellow
       'rgba(239, 68, 68, 0.1)',    // Red
@@ -65,6 +66,31 @@
     const baseColor = BACKGROUND_COLORS[groupColorIndex];
     // Extract the rgba values and increase opacity from 0.1 to 0.3
     return baseColor.replace('0.1)', '0.3)');
+  })();
+
+  // Check if any lanes within this group (including nested groups) are currently selected
+  $: hasSelectedLanes = (() => {
+    function checkGroupForSelectedLanes(items: SignalItem[]): boolean {
+      for (const item of items) {
+        const itemType = getItemType(item);
+        if (itemType === 'signal') {
+          const signalIndex = signalIndexMap.get(item);
+          if (signalIndex !== undefined && isLaneSelected(signalIndex)) {
+            return true;
+          }
+        } else if (itemType === 'group') {
+          // Recursively check nested groups
+          const nestedGroup = item as WaveGroup;
+          const nestedItems = nestedGroup.slice(1) as SignalItem[];
+          if (checkGroupForSelectedLanes(nestedItems)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+    
+    return checkGroupForSelectedLanes(groupItems);
   })();
 
     let isCollapsed = false;
@@ -486,6 +512,7 @@
     <!-- Group Content -->
     {#if !isCollapsed}
       <div class="group-content" 
+           class:has-selected-lanes={hasSelectedLanes}
            style="--group-bg-color: {groupBackgroundColor};"
            on:dragover={handleGroupContentDragOver}
            on:drop={handleGroupContentDrop}>
@@ -502,8 +529,10 @@
               {maxCycles}
               {hscale}
               {isCellSelected}
+              isLaneSelected={isLaneSelected(signalIndexMap.get(item) ?? index)}
               on:signalchange={handleSignalChange}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:laneselection={(e) => dispatch('laneselection', e.detail)}
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
               on:signalreorder={handleInternalReorder}
@@ -520,10 +549,12 @@
               level={level + 1}
               {getItemType}
               {isCellSelected}
+              {isLaneSelected}
               {signalIndexMap}
               on:signalchange={handleSignalChange}
               on:groupchange={handleNestedGroupChange}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:laneselection={(e) => dispatch('laneselection', e.detail)}
               on:rightclick={(e) => dispatch('rightclick', e.detail)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
               on:signalreorder={handleInternalReorder}
@@ -737,8 +768,23 @@
     }
 
     .group-content {
-      background-color: var(--group-bg-color);
       width: calc(var(--name-width) + var(--cycle-width) * var(--max-cycles));
+    }
+
+    /* Only apply group background when no lanes are selected */
+    .group-content:not(.has-selected-lanes) {
+      background-color: var(--group-bg-color);
+    }
+
+    /* When lanes are selected, use transparent background to let lane highlighting show through */
+    .group-content.has-selected-lanes {
+      background-color: transparent;
+    }
+
+    /* Ensure lane selection styling takes precedence over group styling */
+    .group-content :global(.signal-lane.lane-selected) {
+      position: relative;
+      z-index: 10;
     }
 
     .group-spacer {

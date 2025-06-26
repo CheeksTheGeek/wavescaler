@@ -9,11 +9,13 @@
   
       export let waveJson: WaveJson;
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+  export let isLaneSelected: (signalIndex: number) => boolean = () => false;
 
   const dispatch = createEventDispatcher<{
     signalchange: { signalIndex: number; newSignal: WaveSignal };
     structurechange: { newWaveJson: WaveJson };
     cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
+    laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
     cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
     transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
   }>();
@@ -633,8 +635,10 @@
               {maxCycles}
               {hscale}
               {isCellSelected}
+              isLaneSelected={isLaneSelected(signalIndexMap.get(item) ?? i)}
               on:signalchange={(e) => handleSignalChange(e)}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:laneselection={(e) => dispatch('laneselection', e.detail)}
               on:rightclick={(e) => handleRightClick(e)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
               on:signalreorder={(e) => handleSignalReorder(e)}
@@ -651,11 +655,13 @@
               level={0}
               {getItemType}
               {isCellSelected}
+              {isLaneSelected}
               {signalIndexMap}
               on:signalchange={(e) => handleSignalChange(e)}
               on:structurechange={(e) => handleStructureChange(e)}
               on:groupchange={(e) => handleGroupChange(e)}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
+              on:laneselection={(e) => dispatch('laneselection', e.detail)}
               on:rightclick={(e) => handleRightClick(e)}
               on:signalreorder={(e) => handleSignalReorder(e)}
               on:groupreorder={(e) => handleGroupReorder(e)}
