@@ -6,10 +6,10 @@
     import WaveformGrid from './WaveformGrid.svelte';
     import CycleContextMenu from './CycleContextMenu.svelte';
     import { createEventDispatcher } from 'svelte';
+    import { selectedLanes, clearLaneSelection } from '$lib/lane-selection-store';
   
       export let waveJson: WaveJson;
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
-  export let isLaneSelected: (signalIndex: number) => boolean = () => false;
 
   const dispatch = createEventDispatcher<{
     signalchange: { signalIndex: number; newSignal: WaveSignal };
@@ -635,7 +635,6 @@
               {maxCycles}
               {hscale}
               {isCellSelected}
-              isLaneSelected={isLaneSelected(signalIndexMap.get(item) ?? i)}
               on:signalchange={(e) => handleSignalChange(e)}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:laneselection={(e) => dispatch('laneselection', e.detail)}
@@ -655,7 +654,6 @@
               level={0}
               {getItemType}
               {isCellSelected}
-              {isLaneSelected}
               {signalIndexMap}
               on:signalchange={(e) => handleSignalChange(e)}
               on:structurechange={(e) => handleStructureChange(e)}

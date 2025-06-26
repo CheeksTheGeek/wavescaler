@@ -2,6 +2,7 @@
     import type { WaveGroup, SignalItem, WaveSignal, WaveSpacer } from '$lib/wavejson-types';
     import SignalLane from './SignalLane.svelte';
     import { createEventDispatcher } from 'svelte';
+    import { selectedLanes } from '$lib/lane-selection-store';
     // Recursive type for svelte:self, not strictly needed for TS but good for clarity
     // type SignalGroupComponent = typeof import('./SignalGroup.svelte').default;
   
@@ -12,7 +13,6 @@
     export let level: number = 0;
     export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
     export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
-    export let isLaneSelected: (signalIndex: number) => boolean = () => false;
     export let signalIndexMap: Map<any, number>;
     export let treePath: number[] = [];
 
@@ -68,14 +68,17 @@
     return baseColor.replace('0.1)', '0.3)');
   })();
 
-  // Check if any lanes within this group (including nested groups) are currently selected
+  // Check if any lanes within this group are currently selected - using global store for immediate updates
   $: hasSelectedLanes = (() => {
+    if ($selectedLanes.size === 0) return false;
+    
+    // Check each signal in this group directly using the global store
     function checkGroupForSelectedLanes(items: SignalItem[]): boolean {
       for (const item of items) {
         const itemType = getItemType(item);
         if (itemType === 'signal') {
           const signalIndex = signalIndexMap.get(item);
-          if (signalIndex !== undefined && isLaneSelected(signalIndex)) {
+          if (signalIndex !== undefined && $selectedLanes.has(signalIndex)) {
             return true;
           }
         } else if (itemType === 'group') {
@@ -529,7 +532,6 @@
               {maxCycles}
               {hscale}
               {isCellSelected}
-              isLaneSelected={isLaneSelected(signalIndexMap.get(item) ?? index)}
               on:signalchange={handleSignalChange}
               on:cellselection={(e) => dispatch('cellselection', e.detail)}
               on:laneselection={(e) => dispatch('laneselection', e.detail)}
@@ -549,7 +551,6 @@
               level={level + 1}
               {getItemType}
               {isCellSelected}
-              {isLaneSelected}
               {signalIndexMap}
               on:signalchange={handleSignalChange}
               on:groupchange={handleNestedGroupChange}

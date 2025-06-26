@@ -4,16 +4,19 @@
     import SignalCycle from './SignalCycle.svelte';
     import SignalTransition from './SignalTransition.svelte';
     import { onDestroy } from 'svelte';
+    import { selectedLanes, toggleLane, isLaneSelected as isLaneSelectedStore } from '$lib/lane-selection-store';
   
         export let signal: WaveSignal;
   export let signalIndex: number;
   export let maxCycles: number;
   export let hscale: number = 1;
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
-  export let isLaneSelected: boolean = false;
   export let parentGroupIndex: number | null = null;
   export let localIndex: number | null = null;
   export let treePath: number[] = [];
+
+  // Use global store for immediate lane selection updates
+  $: isLaneSelected = isLaneSelectedStore(signalIndex, $selectedLanes);
 
     const dispatch = createEventDispatcher<{
       signalchange: { signalIndex: number; newSignal: WaveSignal };
@@ -343,6 +346,15 @@
       const mouseEvent = event as MouseEvent | KeyboardEvent;
       const shiftKey = 'shiftKey' in mouseEvent ? mouseEvent.shiftKey : false;
       
+      // Update global store immediately for instant visual feedback
+      if (shiftKey) {
+        toggleLane(signalIndex);
+      } else {
+        // Clear all other selections and select only this lane
+        selectedLanes.set(new Set([signalIndex]));
+      }
+      
+      // Still dispatch event for compatibility with existing selection logic
       dispatch('laneselection', {
         signalIndex,
         signalName: signal.name,
@@ -666,8 +678,8 @@
       height: var(--lane-height);
       border-bottom: 1px solid var(--border-color);
       background-color: transparent; /* Allow grid lines to show through */
-      transition: all 0.15s ease;
       position: relative;
+      /* No transition for immediate lane selection updates */
     }
 
     .signal-lane.dragging {
@@ -724,7 +736,7 @@
       flex-shrink: 0;
       z-index: 2; /* Above grid lines */
       cursor: grab;
-      transition: background-color 0.15s ease;
+      /* No transition for immediate lane selection updates */
     }
 
     .signal-name-container:active {
@@ -733,6 +745,7 @@
 
     .signal-name-container:hover {
       background-color: rgba(59, 130, 246, 0.05);
+      transition: background-color 0.15s ease; /* Only transition on hover */
     }
   
     .signal-name-display {

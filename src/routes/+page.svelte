@@ -5,6 +5,7 @@
 	import SelectionPopup from '$lib/components/SelectionPopup.svelte';
 	import SelectionToolbar from '$lib/components/SelectionToolbar.svelte';
 	import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
+	import { selectedLanes, clearLaneSelection, setSelectedLanes } from '$lib/lane-selection-store';
 
 	// Sample WaveJSON data for demonstration
 	let waveformData: WaveJson = {
@@ -183,6 +184,8 @@
 		
 		// Force reactivity update
 		selectedCells = selectedCells;
+		
+		// Note: Lane highlighting is now handled by the global store in the components themselves
 	}
 
 	function getSignalAtIndex(index: number): WaveSignal | null {
@@ -240,6 +243,7 @@
 		selectedCells = [];
 		lastSelectedCell = null;
 		isShiftSelecting = false;
+		clearLaneSelection(); // Clear global lane selection
 	}
 
 	// Make the isCellSelected function reactive
@@ -521,7 +525,6 @@
 					on:cyclechange={handleCycleChange}
 					on:transitionclick={handleTransitionClick}
 					{isCellSelected}
-					{isLaneSelected}
 				/>
 			</div>
 		</div>
