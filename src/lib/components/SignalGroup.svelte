@@ -167,6 +167,59 @@
       dispatch('groupchange', { groupIndex: parentIndex, newGroup });
     }
 
+    function addNestedGroup() {
+      // Generate a unique group name within this group
+      const existingGroupNames = new Set<string>();
+      
+      // Collect all existing group names in this group
+      function collectGroupNames(items: SignalItem[]) {
+        for (const item of items) {
+          if (Array.isArray(item)) {
+            // It's a nested group
+            const groupName = item[0] as string;
+            existingGroupNames.add(groupName);
+            collectGroupNames(item.slice(1) as SignalItem[]);
+          }
+        }
+      }
+      
+      collectGroupNames(groupItems);
+      
+      // Generate a unique group name
+      let counter = 1;
+      let newGroupName = `Group${counter}`;
+      while (existingGroupNames.has(newGroupName)) {
+        counter++;
+        newGroupName = `Group${counter}`;
+      }
+      
+      // Create a new nested group with a default signal
+      const newNestedGroup: WaveGroup = [
+        newGroupName,
+        {
+          name: 'sig',
+          wave: '0..1..0.'
+        }
+      ];
+      
+      // Add the nested group to this group
+      const newGroupItems = [...groupItems, newNestedGroup];
+      const newGroup: WaveGroup = [groupName, ...newGroupItems];
+      
+      // Dispatch the change
+      dispatch('groupchange', { groupIndex: parentIndex, newGroup });
+    }
+
+    function handleAddButtonClick(event: MouseEvent) {
+      if (event.metaKey || event.ctrlKey) {
+        // CMD/Ctrl + Click: Add nested group
+        addNestedGroup();
+      } else {
+        // Regular click: Add signal
+        addSignalToGroup();
+      }
+    }
+
     // Drag and drop handlers for the group itself
     function handleGroupDragStart(event: DragEvent) {
       isDragging = true;
@@ -419,9 +472,9 @@
         <!-- Add signal button moved next to group name -->
         <button 
           class="add-signal-button"
-          title="Add signal to group"
-          aria-label="Add signal to group"
-          on:click|stopPropagation={addSignalToGroup}
+          title="Add signal to group (CMD+Click to add nested group)"
+          aria-label="Add signal to group, or hold CMD and click to add nested group"
+          on:click|stopPropagation={handleAddButtonClick}
         >
           <svg width="14" height="14" viewBox="0 0 14 14">
             <path d="M7 2 L7 12 M2 7 L12 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/>
