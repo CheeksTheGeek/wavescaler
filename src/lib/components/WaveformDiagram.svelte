@@ -495,6 +495,30 @@
         // Dispatch the change event
         dispatch('structurechange', { newWaveJson: waveJson });
       }
+      // Check for Shift key for horizontal scrolling
+      else if (event.shiftKey) {
+        event.preventDefault();
+        
+        // Convert vertical scroll to horizontal scroll
+        const scrollAmount = event.deltaY;
+        const target = event.currentTarget as HTMLElement;
+        
+        // Find the scrollable container (the diagram content or its parent)
+        let scrollContainer = target;
+        while (scrollContainer && scrollContainer.scrollWidth <= scrollContainer.clientWidth) {
+          scrollContainer = scrollContainer.parentElement;
+          if (!scrollContainer || scrollContainer === document.body) {
+            // If we reach the body, use the original target
+            scrollContainer = target;
+            break;
+          }
+        }
+        
+        // Apply horizontal scroll
+        if (scrollContainer) {
+          scrollContainer.scrollLeft += scrollAmount;
+        }
+      }
       // If no modifier key, allow normal vertical scrolling
     }
   

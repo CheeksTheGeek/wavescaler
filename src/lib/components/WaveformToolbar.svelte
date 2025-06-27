@@ -223,7 +223,7 @@
     <h3>Configuration</h3>
     <div class="scale-info">
       <span class="scale-label">Scale: {(waveJson.config?.hscale ?? 1).toFixed(1)}x</span>
-      <span class="scale-hint">⌘+scroll to zoom horizontally</span>
+      <span class="scale-hint">⌘+scroll to zoom horizontally • ⇧+scroll to scroll horizontally</span>
     </div>
   </div>
 
