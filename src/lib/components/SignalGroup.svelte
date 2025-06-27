@@ -862,20 +862,34 @@
       width: calc(var(--name-width) + var(--cycle-width) * var(--max-cycles));
     }
 
-    /* Only apply group background when no lanes are selected */
-    .group-content:not(.has-selected-lanes) {
+    /* Always apply group background color */
+    .group-content {
       background-color: var(--group-bg-color);
     }
 
-    /* When lanes are selected, use transparent background to let lane highlighting show through */
+    /* Preserve group background even when lanes are selected */
     .group-content.has-selected-lanes {
-      background-color: transparent;
+      background-color: var(--group-bg-color);
     }
 
-    /* Ensure lane selection styling takes precedence over group styling */
+    /* Lane selection styling that works with group background */
     .group-content :global(.signal-lane.lane-selected) {
       position: relative;
       z-index: 10;
+      /* Use a more opaque selection color that shows over group background */
+      background-color: rgba(59, 130, 246, 0.25) !important;
+      /* Add a subtle border to make selection more visible */
+      border-left: 3px solid rgba(59, 130, 246, 0.8);
+      border-right: 3px solid rgba(59, 130, 246, 0.8);
+    }
+
+    /* Adjust lane selection styling for better visibility over group colors */
+    .group-content :global(.signal-lane.lane-selected .signal-name-container) {
+      background-color: rgba(59, 130, 246, 0.3) !important;
+    }
+
+    .group-content :global(.signal-lane.lane-selected .signal-cycles) {
+      background-color: rgba(59, 130, 246, 0.15) !important;
     }
 
     /* Unified group selection styling */
