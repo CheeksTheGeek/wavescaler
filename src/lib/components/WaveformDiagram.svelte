@@ -482,7 +482,7 @@
         const currentScale = waveJson.config?.hscale ?? 1;
         let newScale = zoomOut 
           ? Math.max(0.25, currentScale - zoomFactor)
-          : Math.min(4, currentScale + zoomFactor);
+          : Math.min(10, currentScale + zoomFactor);
         
         // Round to 2 decimal places for cleaner values
         newScale = Math.round(newScale * 100) / 100;
@@ -504,14 +504,15 @@
         const target = event.currentTarget as HTMLElement;
         
         // Find the scrollable container (the diagram content or its parent)
-        let scrollContainer = target;
+        let scrollContainer: HTMLElement | null = target;
         while (scrollContainer && scrollContainer.scrollWidth <= scrollContainer.clientWidth) {
-          scrollContainer = scrollContainer.parentElement;
-          if (!scrollContainer || scrollContainer === document.body) {
+          const parent: HTMLElement | null = scrollContainer.parentElement;
+          if (!parent || parent === document.body) {
             // If we reach the body, use the original target
             scrollContainer = target;
             break;
           }
+          scrollContainer = parent;
         }
         
         // Apply horizontal scroll
