@@ -270,27 +270,28 @@
       // Implicitate the selected signal - convert explicit to implicit where possible
       const signal = findSignalByIndex(contextMenuSignalIndex);
       if (signal) {
-        let waveChars = signal.wave.split('');
+        const waveChars = signal.wave.split('');
         
         // Only process the specific cell that was right-clicked
         if (contextMenuCycleIndex < waveChars.length && waveChars[contextMenuCycleIndex] !== '.') {
           const currentChar = waveChars[contextMenuCycleIndex];
           
-          // Check if this cell can be safely collapsed to a dot
-          // Look at the previous character to see if it's the same
+          // Skip empty characters
+          if (currentChar === '') {
+            contextMenuVisible = false;
+            return;
+          }
+          
+          // Can implicitate any cell after the first one (index > 0)
           if (contextMenuCycleIndex > 0) {
-            const prevChar = waveChars[contextMenuCycleIndex - 1];
-            
-            if (currentChar === prevChar && currentChar !== '' && currentChar !== '.') {
-              // Special handling for data signals - don't collapse different data values
-              if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
-                // Safe to collapse this character to a dot
-                waveChars[contextMenuCycleIndex] = '.';
-                
-                const newSignal = { ...signal, wave: waveChars.join('') };
-                updateSignalAtIndex(contextMenuSignalIndex, newSignal);
-                dispatch('structurechange', { newWaveJson: waveJson });
-              }
+            // Special handling for data signals - don't collapse data values
+            if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
+              // Safe to collapse this character to a dot
+              waveChars[contextMenuCycleIndex] = '.';
+              
+              const newSignal = { ...signal, wave: waveChars.join('') };
+              updateSignalAtIndex(contextMenuSignalIndex, newSignal);
+              dispatch('structurechange', { newWaveJson: waveJson });
             }
           }
         }

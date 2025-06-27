@@ -480,30 +480,28 @@
 	}
 
 	function implicitateSelection() {
-		// Convert explicit cells to implicit where possible (replace consecutive values with .)
+		// Convert explicit cells to implicit where possible (replace with .)
 		selectedCells.forEach(cell => {
 			const signal = getSignalAtIndex(cell.signalIndex);
 			if (signal) {
-				let waveChars = signal.wave.split('');
+				const waveChars = signal.wave.split('');
 				
 				// Only process this specific cell if it's explicit and can be collapsed
 				if (cell.cycleIndex < waveChars.length && waveChars[cell.cycleIndex] !== '.') {
 					const currentChar = waveChars[cell.cycleIndex];
 					
-					// Check if this cell can be safely collapsed to a dot
-					// Look at the previous character to see if it's the same
+					// Skip empty characters
+					if (currentChar === '') return;
+					
+					// Can implicitate any cell after the first one (index > 0)
 					if (cell.cycleIndex > 0) {
-						const prevChar = waveChars[cell.cycleIndex - 1];
-						
-						if (currentChar === prevChar && currentChar !== '' && currentChar !== '.') {
-							// Special handling for data signals - don't collapse different data values
-							if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
-								// Safe to collapse this character to a dot
-								waveChars[cell.cycleIndex] = '.';
-								
-								const newSignal = { ...signal, wave: waveChars.join('') };
-								updateSignalAtIndex(cell.signalIndex, newSignal);
-							}
+						// Special handling for data signals - don't collapse data values
+						if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
+							// Safe to collapse this character to a dot
+							waveChars[cell.cycleIndex] = '.';
+							
+							const newSignal = { ...signal, wave: waveChars.join('') };
+							updateSignalAtIndex(cell.signalIndex, newSignal);
 						}
 					}
 				}
@@ -560,8 +558,31 @@
 
 	// Keyboard shortcuts
 	function handleKeydown(event: KeyboardEvent) {
+		// Don't handle shortcuts if typing in input fields
+		const target = event.target as Element;
+		if (target.closest('input') || target.closest('textarea') || target.closest('.cycle-context-menu')) {
+			return;
+		}
+
 		if (event.key === 'Escape') {
 			clearSelection();
+			return;
+		}
+
+		// Check for Cmd (Mac) or Ctrl (Windows/Linux)
+		const isCmdOrCtrl = event.metaKey || event.ctrlKey;
+		
+		if (isCmdOrCtrl && selectedCells.length > 0) {
+			switch (event.key.toLowerCase()) {
+				case 'e':
+					event.preventDefault();
+					explicitateSelection();
+					break;
+				case 'i':
+					event.preventDefault();
+					implicitateSelection();
+					break;
+			}
 		}
 	}
 

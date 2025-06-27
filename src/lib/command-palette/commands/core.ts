@@ -188,10 +188,98 @@ export const coreCommands: CommandAction[] = [
     category: 'edit',
     icon: '🔄',
     keywords: ['invert', 'toggle', 'flip'],
-    shortcut: 'Ctrl+I',
+    shortcut: 'Ctrl+Shift+I',
     isAvailable: (context) => context.selectedCells.length > 0,
     execute: async () => {
       console.log('Inverting selected cells');
+    }
+  },
+  
+  {
+    id: 'explicitate-selection',
+    title: 'Explicitate Selection',
+    description: 'Convert implicit cells (.) to explicit values',
+    category: 'edit',
+    icon: '📤',
+    keywords: ['explicitate', 'expand', 'dots', 'implicit', 'explicit'],
+    shortcut: 'Ctrl+E',
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Find and apply explicitate to selected cells
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Only process this specific cell if it's implicit
+          if (cell.cycleIndex < waveChars.length && waveChars[cell.cycleIndex] === '.') {
+            // Find the effective character for this specific cell
+            let effectivePrevChar: string | null = null;
+            
+            // Look backwards to find the last non-dot character
+            for (let i = cell.cycleIndex - 1; i >= 0; i--) {
+              if (waveChars[i] !== '.') {
+                effectivePrevChar = waveChars[i];
+                break;
+              }
+            }
+            
+            // Replace only this specific dot with the effective character
+            if (effectivePrevChar) {
+              waveChars[cell.cycleIndex] = effectivePrevChar;
+              
+              const newSignal = { ...signal, wave: waveChars.join('') };
+              context.updateSignalAtIndex(cell.signalIndex, newSignal);
+            }
+          }
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
+    }
+  },
+  
+  {
+    id: 'implicitate-selection',
+    title: 'Implicitate Selection', 
+    description: 'Convert explicit cells to implicit dots (.)',
+    category: 'edit',
+    icon: '📥',
+    keywords: ['implicitate', 'collapse', 'dots', 'implicit', 'explicit'],
+    shortcut: 'Ctrl+I',
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Find and apply implicitate to selected cells
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Only process this specific cell if it's explicit and can be collapsed
+          if (cell.cycleIndex < waveChars.length && waveChars[cell.cycleIndex] !== '.') {
+            const currentChar = waveChars[cell.cycleIndex];
+            
+            // Skip empty characters
+            if (currentChar === '') return;
+            
+            // Can implicitate any cell after the first one (index > 0)
+            if (cell.cycleIndex > 0) {
+              // Special handling for data signals - don't collapse data values
+              if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
+                // Safe to collapse this character to a dot
+                waveChars[cell.cycleIndex] = '.';
+                
+                const newSignal = { ...signal, wave: waveChars.join('') };
+                context.updateSignalAtIndex(cell.signalIndex, newSignal);
+              }
+            }
+          }
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
     }
   },
   
