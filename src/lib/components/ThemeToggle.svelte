@@ -116,14 +116,15 @@
     border: 2px solid rgba(0, 0, 0, 0.1);
     border-radius: var(--radius-lg);
     cursor: pointer;
-    padding: 14px;
+    padding: 10px;
+    margin: 4px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     position: relative;
-    min-width: 64px;
+    min-width: 52px;
     backdrop-filter: blur(12px);
     box-shadow: 
       0 4px 6px -1px rgba(0, 0, 0, 0.1), 
@@ -395,13 +396,37 @@
   /* Responsive design */
   @media (max-width: 768px) {
     .theme-toggle {
-      padding: 12px;
-      min-width: 56px;
+      padding: 8px;
+      min-width: 44px;
+      gap: 6px;
     }
     
     .theme-icon {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
+    }
+    
+    .theme-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .indicator {
+      width: 4px;
+      height: 4px;
+    }
+  }
+
+  /* Tablet responsive design */
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .theme-toggle {
+      padding: 9px;
+      min-width: 48px;
+    }
+    
+    .theme-icon {
+      width: 30px;
+      height: 30px;
     }
     
     .theme-icon svg {

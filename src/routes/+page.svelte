@@ -619,8 +619,13 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		max-width: 1400px;
-		margin: 0 auto;
+		height: auto;
+		min-height: 56px;
+		padding: 0;
+	}
+
+	.header-text {
+		flex: 0 0 auto;
 	}
 
 	.header-text h1 {
@@ -640,6 +645,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		flex: 0 0 auto;
 	}
 
 	.app-main {
@@ -722,14 +728,26 @@
 			margin: 0.5rem;
 		}
 
+		.app-header {
+			padding: 1rem 1.5rem;
+		}
+
 		.header-content {
 			flex-direction: column;
 			gap: 1rem;
 			align-items: flex-start;
+			min-height: auto;
 		}
 
 		.header-actions {
 			align-self: flex-end;
+		}
+	}
+
+	/* Tablet responsive design */
+	@media (max-width: 1024px) and (min-width: 769px) {
+		.app-header {
+			padding: 1rem 1.75rem;
 		}
 	}
 </style>
