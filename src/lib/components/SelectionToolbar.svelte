@@ -123,16 +123,17 @@
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
-    background: white;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xl);
     padding: 16px;
     width: 220px;
     max-height: 70vh;
     overflow-y: auto;
     z-index: 900;
     animation: slideIn 0.2s ease-out;
+    transition: all 0.2s ease;
   }
 
   @keyframes slideIn {
@@ -149,19 +150,22 @@
   .toolbar-header {
     margin-bottom: 16px;
     padding-bottom: 12px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border-primary);
+    transition: border-color 0.2s ease;
   }
 
   .toolbar-header h3 {
     margin: 0 0 4px 0;
     font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--color-text-primary);
+    transition: color 0.2s ease;
   }
 
   .selection-count {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--color-text-tertiary);
+    transition: color 0.2s ease;
   }
 
   .toolbar-section {
@@ -172,7 +176,8 @@
     margin: 0 0 8px 0;
     font-size: 13px;
     font-weight: 600;
-    color: #374151;
+    color: var(--color-text-secondary);
+    transition: color 0.2s ease;
   }
 
   .quick-values {
@@ -183,20 +188,22 @@
   }
 
   .quick-value-btn {
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
     padding: 8px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.15s ease;
-    color: #374151;
+    color: var(--color-text-secondary);
   }
 
   .quick-value-btn:hover {
-    background: #e5e7eb;
-    border-color: #9ca3af;
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
   }
 
   .custom-value {
@@ -207,36 +214,45 @@
   .custom-input {
     flex: 1;
     padding: 6px 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 12px;
     text-align: center;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition: all 0.2s ease;
   }
 
   .custom-input:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 2px var(--color-accent-light);
+  }
+
+  .custom-input::placeholder {
+    color: var(--color-text-placeholder);
   }
 
   .apply-btn {
-    background: #3b82f6;
-    color: white;
+    background: var(--color-accent-primary);
+    color: var(--color-text-inverse);
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 6px 12px;
     font-size: 12px;
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: all 0.15s ease;
   }
 
   .apply-btn:hover:not(:disabled) {
-    background: #2563eb;
+    background: var(--color-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
   }
 
   .apply-btn:disabled {
-    background: #9ca3af;
+    background: var(--color-text-tertiary);
     cursor: not-allowed;
   }
 
@@ -247,36 +263,38 @@
     width: 100%;
     padding: 8px 12px;
     margin-bottom: 4px;
-    background: white;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
     font-size: 13px;
     cursor: pointer;
     transition: all 0.15s ease;
-    color: #374151;
+    color: var(--color-text-secondary);
   }
 
   .action-btn:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
   }
 
   .action-btn.danger {
-    color: #dc2626;
-    border-color: #fca5a5;
+    color: var(--color-error);
+    border-color: var(--color-error);
   }
 
   .action-btn.danger:hover {
-    background: #fef2f2;
-    border-color: #f87171;
+    background: var(--color-error-light);
+    border-color: var(--color-error);
   }
 
   .action-btn.secondary {
-    color: #6b7280;
+    color: var(--color-text-tertiary);
   }
 
   .action-btn.secondary:hover {
-    background: #f9fafb;
+    background: var(--color-bg-secondary);
   }
 
   .action-btn svg {

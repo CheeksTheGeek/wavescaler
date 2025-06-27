@@ -234,7 +234,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: var(--color-bg-overlay);
     backdrop-filter: blur(4px);
     display: flex;
     align-items: flex-start;
@@ -254,12 +254,10 @@
   }
   
   .command-palette {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 
-      0 20px 25px -5px rgba(0, 0, 0, 0.1),
-      0 10px 10px -5px rgba(0, 0, 0, 0.04),
-      0 0 0 1px rgba(0, 0, 0, 0.05);
+    background: var(--color-bg-elevated);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--color-border-primary);
     width: 100%;
     max-width: 640px;
     max-height: 70vh;
@@ -284,12 +282,12 @@
     display: flex;
     align-items: center;
     padding: 16px 20px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border-primary);
     gap: 12px;
   }
   
   .search-icon {
-    color: #6b7280;
+    color: var(--color-text-tertiary);
     flex-shrink: 0;
   }
   
@@ -298,13 +296,13 @@
     border: none;
     outline: none;
     font-size: 16px;
-    color: #111827;
+    color: var(--color-text-primary);
     background: transparent;
-    placeholder-color: #9ca3af;
+    placeholder-color: var(--color-text-placeholder);
   }
   
   .search-input::placeholder {
-    color: #9ca3af;
+    color: var(--color-text-placeholder);
   }
   
   .search-shortcut {
@@ -340,12 +338,12 @@
   
   .command-item:hover,
   .command-item.selected {
-    background-color: #f3f4f6;
+    background-color: var(--color-bg-tertiary);
   }
   
   .command-item.selected {
-    background-color: #dbeafe;
-    border: 1px solid #93c5fd;
+    background-color: var(--color-accent-light);
+    border: 1px solid var(--color-accent-primary);
   }
   
   .command-icon {
@@ -366,13 +364,13 @@
   .command-title {
     font-size: 14px;
     font-weight: 500;
-    color: #111827;
+    color: var(--color-text-primary);
     line-height: 1.3;
   }
   
   .command-description {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--color-text-secondary);
     line-height: 1.3;
     margin-top: 2px;
   }
@@ -399,20 +397,20 @@
   .no-commands-text {
     font-size: 16px;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-secondary);
     margin-bottom: 4px;
   }
   
   .no-commands-subtext {
     font-size: 14px;
-    color: #6b7280;
+    color: var(--color-text-tertiary);
   }
   
   .command-palette-footer {
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border-primary);
     padding: 12px 20px;
-    background-color: #f9fafb;
-    border-radius: 0 0 12px 12px;
+    background-color: var(--color-bg-secondary);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   }
   
   .footer-hint {
@@ -420,18 +418,18 @@
     align-items: center;
     gap: 8px;
     font-size: 12px;
-    color: #6b7280;
+    color: var(--color-text-tertiary);
   }
   
   kbd {
-    background-color: #f3f4f6;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-sm);
     padding: 2px 6px;
     font-size: 11px;
     font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
-    color: #374151;
-    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+    color: var(--color-text-secondary);
+    box-shadow: var(--shadow-sm);
   }
   
   /* Scrollbar styling */
@@ -444,12 +442,12 @@
   }
   
   .command-list::-webkit-scrollbar-thumb {
-    background-color: #d1d5db;
+    background-color: var(--color-border-secondary);
     border-radius: 3px;
   }
   
   .command-list::-webkit-scrollbar-thumb:hover {
-    background-color: #9ca3af;
+    background-color: var(--color-border-hover);
   }
   
   /* Responsive design */

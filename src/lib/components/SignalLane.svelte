@@ -691,7 +691,7 @@
       left: 0;
       right: 0;
       height: 4px;
-      background-color: #3b82f6;
+      background-color: var(--color-accent-primary);
       z-index: 10;
     }
 
@@ -702,26 +702,26 @@
       left: 0;
       right: 0;
       height: 4px;
-      background-color: #3b82f6;
+      background-color: var(--color-accent-primary);
       z-index: 10;
     }
 
     /* Lane selection highlighting */
     .signal-lane.lane-selected {
-      background-color: rgba(59, 130, 246, 0.15) !important;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4);
-      border-radius: 4px;
+      background-color: var(--color-accent-light) !important;
+      box-shadow: 0 0 0 2px var(--color-accent-medium);
+      border-radius: var(--radius-sm);
       z-index: 5;
     }
 
     .signal-lane.lane-selected .signal-name-container {
-      background-color: rgba(59, 130, 246, 0.2) !important;
-      border-radius: 4px 0 0 4px;
+      background-color: var(--color-accent-medium) !important;
+      border-radius: var(--radius-sm) 0 0 var(--radius-sm);
     }
 
     .signal-lane.lane-selected .signal-cycles {
-      background-color: rgba(59, 130, 246, 0.1);
-      border-radius: 0 4px 4px 0;
+      background-color: var(--color-accent-light);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     }
   
     .signal-name-container {
@@ -742,7 +742,7 @@
     }
 
     .signal-name-container:hover {
-      background-color: rgba(59, 130, 246, 0.05);
+      background-color: var(--color-accent-light);
       transition: background-color 0.15s ease; /* Only transition on hover */
     }
   
@@ -766,12 +766,13 @@
     }
 
     .signal-name-text:hover {
-      background-color: rgba(59, 130, 246, 0.1);
+      background-color: var(--color-accent-light);
     }
 
     .signal-name-text:focus {
-      outline: 2px solid #3b82f6;
+      outline: 2px solid var(--color-accent-primary);
       outline-offset: 1px;
+      border-radius: var(--radius-sm);
     }
 
     .edit-name-button {
@@ -783,30 +784,31 @@
       justify-content: center;
       width: 20px;
       height: 20px;
-      border-radius: 3px;
-      color: #6b7280;
+      border-radius: var(--radius-sm);
+      color: var(--color-text-tertiary);
       transition: all 0.15s ease;
       flex-shrink: 0;
     }
 
     .edit-name-button:hover {
-      background-color: #e5e7eb;
-      color: #374151;
+      background-color: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
     }
   
     .signal-name-input {
       width: 100%;
-      border: 1px solid #3b82f6;
-      border-radius: 4px;
+      border: 1px solid var(--color-accent-primary);
+      border-radius: var(--radius-sm);
       padding: 4px 8px;
       font: inherit;
       font-weight: 500;
-      background-color: white;
+      background-color: var(--color-bg-primary);
+      color: var(--color-text-primary);
     }
   
     .signal-name-input:focus {
       outline: none;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 0 2px var(--color-accent-light);
     }
   
     .signal-cycles {
@@ -835,13 +837,13 @@
       background: transparent;
       border: 1px solid transparent;
       font: inherit;
-      color: #1f2937;
+      color: var(--color-text-primary);
       font-size: 12px;
       font-weight: 500;
       font-family: 'Arial', sans-serif;
       cursor: pointer;
       padding: 2px 6px;
-      border-radius: 3px;
+      border-radius: var(--radius-sm);
       transition: all 0.15s ease;
       text-align: center;
       white-space: nowrap;
@@ -851,28 +853,30 @@
     }
 
     .data-text-button:hover {
-      background-color: rgba(59, 130, 246, 0.1);
-      border-color: rgba(59, 130, 246, 0.3);
+      background-color: var(--color-accent-light);
+      border-color: var(--color-accent-medium);
     }
 
     .data-text-input {
-      border: 1px solid #3b82f6;
-      border-radius: 3px;
+      border: 1px solid var(--color-accent-primary);
+      border-radius: var(--radius-sm);
       padding: 2px 6px;
       font: inherit;
       font-size: 12px;
       font-weight: 500;
       font-family: 'Arial', sans-serif;
-      background-color: white;
+      background-color: var(--color-bg-primary);
+      color: var(--color-text-primary);
       text-align: center;
       pointer-events: auto;
       min-width: 40px;
       height: auto;
+      transition: all 0.2s ease;
     }
 
     .data-text-input:focus {
       outline: none;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 0 2px var(--color-accent-light);
     }
 
     .transition-overlay {

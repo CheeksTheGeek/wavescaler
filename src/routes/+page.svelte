@@ -4,6 +4,7 @@
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import SelectionPopup from '$lib/components/SelectionPopup.svelte';
 	import SelectionToolbar from '$lib/components/SelectionToolbar.svelte';
+	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
 	import { clearLaneSelection, selectedLanes } from '$lib/lane-selection-store';
 	import { initializeCommandPalette, commandPaletteStore } from '$lib/command-palette';
@@ -521,8 +522,15 @@
 
 <div class="app-container" role="application">
 	<header class="app-header">
-		<h1>Wavescaler</h1>
-		<p>Interactive Digital Waveform Editor</p>
+		<div class="header-content">
+			<div class="header-text">
+				<h1>Wavescaler</h1>
+				<p>Interactive Digital Waveform Editor</p>
+			</div>
+			<div class="header-actions">
+				<ThemeToggle />
+			</div>
+		</div>
 	</header>
 	
 	<main class="app-main">
@@ -595,26 +603,43 @@
 		display: flex;
 		flex-direction: column;
 		height: 100vh;
-		background-color: #f8fafc;
+		background-color: var(--color-bg-secondary);
+		transition: background-color 0.2s ease;
 	}
 
 	.app-header {
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		color: white;
+		background: var(--gradient-header);
+		color: var(--color-text-inverse);
 		padding: 1rem 2rem;
-		box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+		box-shadow: var(--shadow-md);
+		border-bottom: 1px solid var(--color-border-primary);
 	}
 
-	.app-header h1 {
+	.header-content {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		max-width: 1400px;
+		margin: 0 auto;
+	}
+
+	.header-text h1 {
 		margin: 0 0 0.25rem 0;
 		font-size: 1.75rem;
 		font-weight: 700;
 	}
 
-	.app-header p {
+	.header-text p {
 		margin: 0;
 		opacity: 0.9;
 		font-size: 0.95rem;
+		color: var(--color-text-inverse);
+	}
+
+	.header-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	.app-main {
@@ -625,9 +650,10 @@
 
 	.app-sidebar {
 		flex-shrink: 0;
-		background-color: white;
-		border-right: 1px solid #e5e7eb;
-		box-shadow: 2px 0 4px rgba(0,0,0,0.05);
+		background-color: var(--color-bg-elevated);
+		border-right: 1px solid var(--color-border-primary);
+		box-shadow: var(--shadow-sm);
+		transition: all 0.2s ease;
 	}
 
 	.app-content {
@@ -640,17 +666,20 @@
 	.waveform-container {
 		flex: 1;
 		margin: 1rem;
-		background: white;
-		border-radius: 12px;
-		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-		overflow: auto; /* Allow scrolling */
+		background: var(--color-bg-elevated);
+		border-radius: var(--radius-lg);
+		box-shadow: var(--shadow-md);
+		border: 1px solid var(--color-border-primary);
+		overflow: auto;
 		display: flex;
 		flex-direction: column;
-		outline: none; /* Remove focus outline */
+		outline: none;
+		transition: all 0.2s ease;
 	}
 
 	.waveform-container:focus {
-		box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 2px rgba(59, 130, 246, 0.3);
+		box-shadow: var(--shadow-lg), 0 0 0 2px var(--color-accent-light);
+		border-color: var(--color-accent-primary);
 	}
 
 	/* Global styles for the component-based approach */
@@ -665,7 +694,7 @@
 	}
 
 	:global(.signal-lane:hover) {
-		background-color: #f8fafc;
+		background-color: var(--color-bg-tertiary);
 	}
 
 	:global(.signal-cycle) {
@@ -673,7 +702,8 @@
 	}
 
 	:global(.signal-cycle:hover) {
-		transform: scale(1.02);
+		background-color: var(--color-accent-light);
+		transform: translateY(-1px);
 		z-index: 10;
 	}
 
@@ -685,11 +715,21 @@
 
 		.app-sidebar {
 			border-right: none;
-			border-bottom: 1px solid #e5e7eb;
+			border-bottom: 1px solid var(--color-border-primary);
 		}
 
 		.waveform-container {
 			margin: 0.5rem;
+		}
+
+		.header-content {
+			flex-direction: column;
+			gap: 1rem;
+			align-items: flex-start;
+		}
+
+		.header-actions {
+			align-self: flex-end;
 		}
 	}
 </style>

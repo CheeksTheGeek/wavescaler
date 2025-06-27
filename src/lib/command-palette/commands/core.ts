@@ -1,5 +1,6 @@
 import type { CommandAction, CommandCategory } from '../types';
 import type { WaveGroup } from '$lib/wavejson-types';
+import { themeStore } from '$lib/theme-store';
 
 // Core command categories
 export const coreCategories: CommandCategory[] = [
@@ -261,6 +262,19 @@ export const coreCommands: CommandAction[] = [
       };
       
       context.setWaveformData(newWaveJson);
+    }
+  },
+  
+  {
+    id: 'toggle-theme',
+    title: 'Toggle Theme',
+    description: 'Switch between light and dark mode',
+    category: 'view',
+    icon: '🌓',
+    keywords: ['theme', 'dark', 'light', 'mode'],
+    shortcut: 'Ctrl+Shift+T',
+    execute: async () => {
+      themeStore.toggleTheme();
     }
   },
   

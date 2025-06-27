@@ -306,21 +306,22 @@
   }
 
   .signal-transition:focus {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid var(--color-accent-primary);
     outline-offset: 1px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
 
   /* Transition lines with calculated positioning */
   .transition-line {
     position: absolute;
     height: 2px;
-    background-color: #2563eb;
+    background-color: var(--color-signal-high);
     left: 0;
     top: var(--from-y);
     width: var(--line-length);
     transform-origin: left center;
     transform: translateY(-1px) rotate(var(--line-angle));
+    transition: background-color 0.2s ease;
   }
 
   .rising {
@@ -358,10 +359,11 @@
 
   /* Data signal fills */
   .cross-fill-left.data, .cross-fill-right.data {
-    background-color: #f3f4f6;
-    border-top: 2px solid #2563eb;
-    border-bottom: 2px solid #2563eb;
+    background-color: var(--color-signal-data-bg);
+    border-top: 2px solid var(--color-signal-high);
+    border-bottom: 2px solid var(--color-signal-high);
     height: 70%;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .cross-fill-left.data {
@@ -377,15 +379,16 @@
   /* X pattern fills */
   .cross-fill-left.x, .cross-fill-right.x {
     background-image: 
-      radial-gradient(circle at 25% 25%, #9ca3af 0.5px, transparent 0.5px),
-      radial-gradient(circle at 75% 25%, #9ca3af 0.5px, transparent 0.5px),
-      radial-gradient(circle at 25% 75%, #9ca3af 0.5px, transparent 0.5px),
-      radial-gradient(circle at 75% 75%, #9ca3af 0.5px, transparent 0.5px);
+      radial-gradient(circle at 25% 25%, var(--color-signal-unknown) 0.5px, transparent 0.5px),
+      radial-gradient(circle at 75% 25%, var(--color-signal-unknown) 0.5px, transparent 0.5px),
+      radial-gradient(circle at 25% 75%, var(--color-signal-unknown) 0.5px, transparent 0.5px),
+      radial-gradient(circle at 75% 75%, var(--color-signal-unknown) 0.5px, transparent 0.5px);
     background-size: 6px 6px;
     opacity: 0.6;
-    border-top: 2px solid #2563eb;
-    border-bottom: 2px solid #2563eb;
+    border-top: 2px solid var(--color-signal-high);
+    border-bottom: 2px solid var(--color-signal-high);
     height: 70%;
+    transition: background-image 0.2s ease, border-color 0.2s ease;
   }
 
   .cross-fill-left.x {
@@ -405,13 +408,14 @@
         90deg,
         transparent 0px,
         transparent 4px,
-        #f59e0b 4px,
-        #f59e0b 6px
+        var(--color-warning) 4px,
+        var(--color-warning) 6px
       );
     opacity: 0.8;
-    border-top: 2px solid #2563eb;
-    border-bottom: 2px solid #2563eb;
+    border-top: 2px solid var(--color-signal-high);
+    border-bottom: 2px solid var(--color-signal-high);
     height: 60%;
+    transition: background-image 0.2s ease, border-color 0.2s ease;
   }
 
   .cross-fill-left.z {
@@ -433,12 +437,13 @@
   .cross-line {
     position: absolute;
     height: 2px;
-    background-color: #2563eb;
+    background-color: var(--color-signal-high);
     left: 0;
     transform-origin: left center;
     width: var(--line-length);
     /* Ensure clean lines for pattern compatibility */
     z-index: 2;
+    transition: background-color 0.2s ease;
   }
 
   .cross-line-1 {
@@ -481,12 +486,12 @@
   }
 
   .signal-transition.interactive:hover {
-    border-color: rgba(37, 99, 235, 0.3);
-    background-color: rgba(37, 99, 235, 0.05);
+    border-color: var(--color-accent-light);
+    background-color: var(--color-accent-light);
   }
 
   .signal-transition.interactive:active {
-    background-color: rgba(37, 99, 235, 0.15);
-    border-color: rgba(37, 99, 235, 0.5);
+    background-color: var(--color-accent-medium);
+    border-color: var(--color-accent-primary);
   }
 </style> 

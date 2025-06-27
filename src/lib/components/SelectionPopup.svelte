@@ -49,16 +49,19 @@
   }
 
   .popup-content {
-    background: #1f2937;
-    color: white;
-    border-radius: 8px;
+    background: var(--color-bg-overlay);
+    color: var(--color-text-inverse);
+    border-radius: var(--radius-md);
     padding: 12px 16px;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-xl);
     display: flex;
     align-items: center;
     gap: 12px;
     max-width: 400px;
     min-width: 200px;
+    border: 1px solid var(--color-border-secondary);
+    backdrop-filter: blur(8px);
+    transition: all 0.2s ease;
   }
 
   .selection-info {
@@ -69,8 +72,9 @@
   }
 
   .selection-icon {
-    color: #3b82f6;
+    color: var(--color-accent-primary);
     flex-shrink: 0;
+    transition: color 0.2s ease;
   }
 
   .selection-text {
@@ -84,18 +88,19 @@
   .clear-button {
     background: rgba(255, 255, 255, 0.1);
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 6px;
     cursor: pointer;
-    color: white;
+    color: var(--color-text-inverse);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.15s ease;
+    transition: all 0.15s ease;
     flex-shrink: 0;
   }
 
   .clear-button:hover {
     background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
   }
 </style> 

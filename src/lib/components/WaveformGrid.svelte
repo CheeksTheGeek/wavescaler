@@ -58,21 +58,24 @@
     left: 0;
     right: 0;
     height: 24px;
-    background-color: #f8fafc;
-    border-bottom: 1px solid #d1d5db;
+    background-color: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border-primary);
     display: flex;
     align-items: center;
     z-index: 3;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .time-tick {
     position: absolute;
     font-size: 10px;
-    color: #6b7280;
+    color: var(--color-text-tertiary);
     text-align: center;
     width: var(--full-cycle-width);
     transform: translateX(-50%);
     user-select: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
   }
 
   .grid-lines {
@@ -89,17 +92,18 @@
     top: 0;
     bottom: 0;
     width: 1px;
-    background-color: #e5e7eb;
-    opacity: 0.8;
+    background-color: var(--color-border-primary);
+    opacity: 0.6;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
   }
 
   .grid-line.major-line {
-    background-color: #d1d5db;
-    opacity: 1;
+    background-color: var(--color-border-secondary);
+    opacity: 0.8;
   }
 
   .grid-line.name-separator {
-    background-color: #9ca3af;
+    background-color: var(--color-border-secondary);
     opacity: 1;
     z-index: 2;
   }

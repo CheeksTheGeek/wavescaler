@@ -137,10 +137,10 @@
 <style>
   .cycle-context-menu {
     position: fixed;
-    background: white;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xl);
     z-index: 1100;
     min-width: 200px;
     padding: 4px;
@@ -149,26 +149,26 @@
 
   .context-menu-header {
     padding: 8px 12px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border-primary);
     margin-bottom: 4px;
   }
 
   .context-menu-header strong {
     display: block;
     font-size: 13px;
-    color: #1f2937;
+    color: var(--color-text-primary);
   }
 
   .cycle-info {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--color-text-tertiary);
   }
 
   .current-value {
     font-size: 11px;
-    color: #3b82f6;
+    color: var(--color-accent-primary);
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-    background: #dbeafe;
+    background: var(--color-accent-light);
     padding: 2px 4px;
     border-radius: 3px;
     margin-left: 8px;
@@ -182,7 +182,7 @@
     padding: 4px 12px;
     font-size: 11px;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--color-text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -199,12 +199,12 @@
     cursor: pointer;
     border-radius: 4px;
     transition: background-color 0.15s ease;
-    color: var(--text-color, #1f2937);
+    color: var(--color-text-primary);
     font-size: inherit;
   }
 
   .menu-item:hover {
-    background-color: #f3f4f6;
+    background-color: var(--color-accent-light);
   }
 
   .value-item {
@@ -217,17 +217,17 @@
     justify-content: center;
     width: 20px;
     height: 20px;
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
     border-radius: 4px;
     font-weight: 600;
     font-size: 12px;
-    color: #374151;
+    color: var(--color-text-primary);
   }
 
   .menu-separator {
     height: 1px;
-    background-color: #e5e7eb;
+    background-color: var(--color-border-primary);
     margin: 4px 0;
   }
 

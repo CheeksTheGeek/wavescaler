@@ -249,8 +249,8 @@
 
 <style>
   .waveform-toolbar {
-    background-color: #f8fafc;
-    border-right: 1px solid var(--border-color, #d1d5db);
+    background-color: var(--color-bg-elevated);
+    border-right: 1px solid var(--color-border-primary);
     padding: 16px;
     width: 250px;
     height: 100%;
@@ -258,6 +258,7 @@
     display: flex;
     flex-direction: column;
     gap: 24px;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
   }
 
   .toolbar-section {
@@ -269,10 +270,11 @@
   .toolbar-section h3 {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-color, #1f2937);
+    color: var(--color-text-primary);
     margin: 0 0 8px 0;
     padding-bottom: 4px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border-primary);
+    transition: color 0.2s ease, border-color 0.2s ease;
   }
 
   .toolbar-button {
@@ -281,52 +283,58 @@
     gap: 8px;
     padding: 8px 12px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
-    background-color: white;
-    color: var(--text-color, #1f2937);
-    border: 1px solid #d1d5db;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-primary);
   }
 
   .toolbar-button:hover {
-    background-color: #f3f4f6;
-    border-color: #9ca3af;
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .toolbar-button:active {
+    transform: translateY(0);
   }
 
   .toolbar-button.primary {
-    background-color: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
+    background-color: var(--color-accent-primary);
+    color: var(--color-text-inverse);
+    border-color: var(--color-accent-primary);
   }
 
   .toolbar-button.primary:hover {
-    background-color: #2563eb;
-    border-color: #2563eb;
+    background-color: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
   }
 
   .toolbar-button.secondary {
-    background-color: #6b7280;
-    color: white;
-    border-color: #6b7280;
+    background-color: var(--color-text-tertiary);
+    color: var(--color-text-inverse);
+    border-color: var(--color-text-tertiary);
   }
 
   .toolbar-button.secondary:hover {
-    background-color: #4b5563;
-    border-color: #4b5563;
+    background-color: var(--color-text-secondary);
+    border-color: var(--color-text-secondary);
   }
 
   .toolbar-button.danger {
-    background-color: white;
-    color: #dc2626;
-    border-color: #dc2626;
+    background-color: var(--color-bg-primary);
+    color: var(--color-error);
+    border-color: var(--color-error);
   }
 
   .toolbar-button.danger:hover {
-    background-color: #dc2626;
-    color: white;
+    background-color: var(--color-error);
+    color: var(--color-text-inverse);
   }
 
   .scale-info {
@@ -338,44 +346,56 @@
   .scale-label {
     font-size: 13px;
     font-weight: 500;
-    color: var(--text-color, #1f2937);
+    color: var(--color-text-primary);
+    transition: color 0.2s ease;
   }
 
   .scale-hint {
     font-size: 11px;
-    color: #6b7280;
+    color: var(--color-text-tertiary);
     font-style: italic;
+    transition: color 0.2s ease;
   }
 
   .text-import-section {
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
     padding: 12px;
-    background-color: #f9fafb;
+    background-color: var(--color-bg-tertiary);
+    transition: all 0.2s ease;
   }
 
   .text-import-section h3 {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-color, #1f2937);
+    color: var(--color-text-primary);
     margin: 0 0 8px 0;
+    border-bottom: none;
+    padding-bottom: 0;
   }
 
   .import-textarea {
     width: 100%;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
     padding: 8px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
     font-size: 12px;
     resize: vertical;
     min-height: 120px;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition: all 0.2s ease;
   }
 
   .import-textarea:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 2px var(--color-accent-light);
+  }
+
+  .import-textarea::placeholder {
+    color: var(--color-text-placeholder);
   }
 
   .import-buttons {

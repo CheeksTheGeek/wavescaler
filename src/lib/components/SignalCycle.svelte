@@ -227,36 +227,36 @@
   }
 
   .signal-cycle.interactive:hover {
-    background-color: rgba(59, 130, 246, 0.1);
+    background-color: var(--color-accent-light);
   }
 
   .signal-cycle.selected {
-    background-color: rgba(59, 130, 246, 0.3) !important;
-    box-shadow: 0 0 0 2px #3b82f6;
+    background-color: var(--color-accent-medium) !important;
+    box-shadow: 0 0 0 2px var(--color-accent-primary);
     z-index: 10;
   }
 
   /* Reduced border styling for consecutive selections */
   .signal-cycle.selected.reduced-left-border {
     box-shadow: 
-      0 2px 0 0 #3b82f6,      /* top */
-      0 -2px 0 0 #3b82f6,     /* bottom */
-      2px 0 0 0 #3b82f6;      /* right */
+      0 2px 0 0 var(--color-accent-primary),      /* top */
+      0 -2px 0 0 var(--color-accent-primary),     /* bottom */
+      2px 0 0 0 var(--color-accent-primary);      /* right */
     /* left border removed */
   }
 
   .signal-cycle.selected.reduced-right-border {
     box-shadow: 
-      0 2px 0 0 #3b82f6,      /* top */
-      0 -2px 0 0 #3b82f6,     /* bottom */
-      -2px 0 0 0 #3b82f6;     /* left */
+      0 2px 0 0 var(--color-accent-primary),      /* top */
+      0 -2px 0 0 var(--color-accent-primary),     /* bottom */
+      -2px 0 0 0 var(--color-accent-primary);     /* left */
     /* right border removed */
   }
 
   .signal-cycle.selected.reduced-left-border.reduced-right-border {
     box-shadow: 
-      0 2px 0 0 #3b82f6,      /* top */
-      0 -2px 0 0 #3b82f6;     /* bottom */
+      0 2px 0 0 var(--color-accent-primary),      /* top */
+      0 -2px 0 0 var(--color-accent-primary);     /* bottom */
     /* left and right borders removed */
   }
 
@@ -274,10 +274,11 @@
     position: absolute;
     width: var(--signal-line-width);
     height: 2px;
-    background-color: #2563eb;
+    background-color: var(--color-signal-high);
     left: var(--signal-line-left);
     top: var(--signal-line-y);
     transform: translateY(-50%);
+    transition: background-color 0.2s ease;
   }
 
   .high-line {
@@ -300,9 +301,9 @@
     top: var(--signal-line-y);
     left: var(--signal-line-left);
     transform: translateY(-50%);
-    background-color: #f3f4f6;
-    border-top: 2px solid #2563eb;
-    border-bottom: 2px solid #2563eb;
+    background-color: var(--color-signal-data-bg);
+    border-top: 2px solid var(--color-signal-high);
+    border-bottom: 2px solid var(--color-signal-high);
   }
 
   .data-shape::before {
@@ -314,7 +315,7 @@
     height: 0;
     border-top: calc(50% + 2px) solid transparent;
     border-bottom: calc(50% + 2px) solid transparent;
-    border-right: 12% solid #2563eb;
+    border-right: 12% solid var(--color-signal-high);
   }
 
   .data-shape::after {
@@ -326,7 +327,7 @@
     height: 0;
     border-top: calc(50% + 2px) solid transparent;
     border-bottom: calc(50% + 2px) solid transparent;
-    border-left: 12% solid #2563eb;
+    border-left: 12% solid var(--color-signal-high);
   }
 
   .data-background {
@@ -334,9 +335,10 @@
     width: 85%;
     height: 100%;
     left: 7.5%;
-    background-color: #f3f4f6;
-    border-top: 2px solid #6b7280;
-    border-bottom: 2px solid #6b7280;
+    background-color: var(--color-signal-data-bg);
+    border-top: 2px solid var(--color-signal-data-border);
+    border-bottom: 2px solid var(--color-signal-data-border);
+    transition: all 0.2s ease;
   }
 
   .data-left-edge {
@@ -345,10 +347,11 @@
     top: 0;
     width: 0;
     height: 0;
-    border-top: 50% solid #f3f4f6;
-    border-bottom: 50% solid #f3f4f6;
+    border-top: 50% solid var(--color-signal-data-bg);
+    border-bottom: 50% solid var(--color-signal-data-bg);
     border-left: 7.5% solid transparent;
     z-index: 2;
+    transition: border-color 0.2s ease;
   }
 
   .data-left-edge::after {
@@ -360,7 +363,8 @@
     height: 0;
     border-top: 50% solid transparent;
     border-bottom: 50% solid transparent;
-    border-right: 7.5% solid #6b7280;
+    border-right: 7.5% solid var(--color-signal-data-border);
+    transition: border-color 0.2s ease;
   }
 
   .data-right-edge {
@@ -369,10 +373,11 @@
     top: 0;
     width: 0;
     height: 0;
-    border-top: 50% solid #f3f4f6;
-    border-bottom: 50% solid #f3f4f6;
+    border-top: 50% solid var(--color-signal-data-bg);
+    border-bottom: 50% solid var(--color-signal-data-bg);
     border-right: 7.5% solid transparent;
     z-index: 2;
+    transition: border-color 0.2s ease;
   }
 
   .data-right-edge::after {
@@ -384,11 +389,12 @@
     height: 0;
     border-top: 50% solid transparent;
     border-bottom: 50% solid transparent;
-    border-left: 7.5% solid #6b7280;
+    border-left: 7.5% solid var(--color-signal-data-border);
+    transition: border-color 0.2s ease;
   }
 
   .data-value {
-    color: #1f2937;
+    color: var(--color-text-primary);
     font-size: 12px;
     font-weight: 500;
     font-family: 'Arial', sans-serif;
@@ -415,19 +421,20 @@
     width: 100%;
     height: 100%;
     background-image: 
-      radial-gradient(circle at 25% 25%, #9ca3af 0.5px, transparent 0.5px),
-      radial-gradient(circle at 75% 25%, #9ca3af 0.5px, transparent 0.5px),
-      radial-gradient(circle at 25% 75%, #9ca3af 0.5px, transparent 0.5px),
-      radial-gradient(circle at 75% 75%, #9ca3af 0.5px, transparent 0.5px);
+      radial-gradient(circle at 25% 25%, var(--color-signal-unknown) 0.5px, transparent 0.5px),
+      radial-gradient(circle at 75% 25%, var(--color-signal-unknown) 0.5px, transparent 0.5px),
+      radial-gradient(circle at 25% 75%, var(--color-signal-unknown) 0.5px, transparent 0.5px),
+      radial-gradient(circle at 75% 75%, var(--color-signal-unknown) 0.5px, transparent 0.5px);
     background-size: 6px 6px;
     opacity: 0.6; /* Keep opacity for grid transparency */
+    transition: background-image 0.2s ease;
   }
 
   .x-top-border, .x-bottom-border {
     position: absolute;
     width: 100%;
     height: 2px;
-    background-color: #2563eb;
+    background-color: var(--color-signal-high);
     left: 0;
     opacity: 1; /* Ensure full opacity for signal lines */
   }
@@ -459,17 +466,18 @@
         90deg,
         transparent 0px,
         transparent 4px,
-        #f59e0b 4px,
-        #f59e0b 6px
+        var(--color-warning) 4px,
+        var(--color-warning) 6px
       );
     opacity: 0.8; /* Keep opacity for grid transparency */
+    transition: background-image 0.2s ease;
   }
 
   .z-top-border, .z-bottom-border {
     position: absolute;
     width: 100%;
     height: 2px;
-    background-color: #2563eb;
+    background-color: var(--color-signal-high);
     left: 0;
     opacity: 1; /* Ensure full opacity for signal lines */
   }
@@ -495,7 +503,8 @@
     position: absolute;
     width: calc(var(--signal-line-width) / 2);
     height: 2px;
-    background-color: #10b981;
+    background-color: var(--color-success);
+    transition: background-color 0.2s ease;
   }
 
   .positive-clock .clock-high-segment {
@@ -526,9 +535,10 @@
     position: absolute;
     width: 2px;
     height: 60%;
-    background-color: #10b981;
+    background-color: var(--color-success);
     top: 50%;
     transform: translateY(-50%);
+    transition: background-color 0.2s ease;
   }
 
   .positive-clock .clock-rising-edge {
@@ -551,10 +561,11 @@
     position: absolute;
     width: 6px;
     height: 6px;
-    background-color: #10b981;
+    background-color: var(--color-success);
     border-radius: 50%;
     top: 50%;
     transform: translateY(-50%);
+    transition: background-color 0.2s ease;
   }
 
   .working-edge-marker.rising {
@@ -577,8 +588,9 @@
   .gap-line {
     width: 2px;
     height: 8px;
-    background-color: #9ca3af;
+    background-color: var(--color-signal-unknown);
     margin: 0 auto;
+    transition: background-color 0.2s ease;
   }
 
   /* Empty cycle overlay */
@@ -587,11 +599,11 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #9ca3af;
+    color: var(--color-text-tertiary);
     font-weight: bold;
     font-size: 12px;
     opacity: 0;
-    transition: opacity 0.15s ease;
+    transition: opacity 0.15s ease, color 0.2s ease;
   }
 
   .signal-cycle.empty:hover .empty-overlay {
@@ -600,7 +612,7 @@
 
   /* Keyboard focus */
   .signal-cycle:focus {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid var(--color-accent-primary);
     outline-offset: -2px;
   }
 </style> 

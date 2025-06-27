@@ -426,7 +426,7 @@
         const dragImage = document.createElement('div');
         dragImage.textContent = '--- SPACER ---';
         dragImage.style.padding = '4px 8px';
-        dragImage.style.backgroundColor = '#6b7280';
+        dragImage.style.backgroundColor = 'var(--color-text-tertiary)';
         dragImage.style.color = 'white';
         dragImage.style.borderRadius = '4px';
         dragImage.style.fontSize = '12px';
@@ -674,7 +674,7 @@
       left: 0;
       right: 0;
       height: 4px;
-      background-color: #3b82f6;
+      background-color: var(--color-accent-primary);
       z-index: 10;
     }
 
@@ -685,7 +685,7 @@
       left: 0;
       right: 0;
       height: 4px;
-      background-color: #3b82f6;
+      background-color: var(--color-accent-primary);
       z-index: 10;
     }
 
@@ -707,12 +707,12 @@
     }
 
     .group-header:hover {
-      background-color: rgba(59, 130, 246, 0.05);
+      background-color: var(--color-accent-light);
     }
 
     .group-header.group-fully-selected {
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6);
-      border-radius: 6px 6px 0 0;
+      box-shadow: 0 0 0 2px var(--color-accent-primary);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
       z-index: 10;
     }
 
@@ -739,16 +739,16 @@
       justify-content: center;
       width: 18px; /* Slightly smaller to save space */
       height: 18px;
-      border-radius: 3px;
-      color: #6b7280;
+      border-radius: var(--radius-sm);
+      color: var(--color-text-tertiary);
       transition: all 0.15s ease;
       flex-shrink: 1; /* Allow shrinking if absolutely necessary */
       min-width: 14px; /* But not smaller than 14px */
     }
 
     .collapse-button:hover {
-      background-color: #e5e7eb;
-      color: #374151;
+      background-color: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
     }
 
     .collapse-button svg {
@@ -791,12 +791,13 @@
     }
 
     .group-name-text:hover {
-      background-color: rgba(59, 130, 246, 0.1);
+      background-color: var(--color-accent-light);
     }
 
     .group-name-text:focus {
-      outline: 2px solid #3b82f6;
+      outline: 2px solid var(--color-accent-primary);
       outline-offset: 1px;
+      border-radius: var(--radius-sm);
     }
 
     .edit-group-name-button {
@@ -808,32 +809,34 @@
       justify-content: center;
       width: 16px; /* Smaller to save space */
       height: 16px;
-      border-radius: 3px;
-      color: #6b7280;
+      border-radius: var(--radius-sm);
+      color: var(--color-text-tertiary);
       transition: all 0.15s ease;
       flex-shrink: 1; /* Allow shrinking if absolutely necessary */
       min-width: 12px; /* But not smaller than 12px */
     }
 
     .edit-group-name-button:hover {
-      background-color: #e5e7eb;
-      color: #374151;
+      background-color: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
     }
 
     .group-name-input {
       flex: 1;
-      border: 1px solid #3b82f6;
-      border-radius: 4px;
+      border: 1px solid var(--color-accent-primary);
+      border-radius: var(--radius-sm);
       padding: 4px 8px;
       font: inherit;
       font-weight: 600;
       font-size: 13px;
-      background-color: white;
+      background-color: var(--color-bg-primary);
+      color: var(--color-text-primary);
+      transition: all 0.2s ease;
     }
 
     .group-name-input:focus {
       outline: none;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+      box-shadow: 0 0 0 2px var(--color-accent-light);
     }
 
     .add-signal-button {
@@ -845,8 +848,8 @@
       justify-content: center;
       width: 18px; /* Slightly smaller to save space */
       height: 18px;
-      border-radius: 3px;
-      color: #6b7280;
+      border-radius: var(--radius-sm);
+      color: var(--color-text-tertiary);
       transition: all 0.15s ease;
       margin-left: 1px; /* Even smaller margin */
       flex-shrink: 1; /* Allow shrinking if absolutely necessary */
@@ -854,8 +857,8 @@
     }
 
     .add-signal-button:hover {
-      background-color: #e5e7eb;
-      color: #374151;
+      background-color: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
     }
 
     .group-content {
@@ -877,26 +880,26 @@
       position: relative;
       z-index: 10;
       /* Use a more opaque selection color that shows over group background */
-      background-color: rgba(59, 130, 246, 0.25) !important;
+      background-color: var(--color-accent-medium) !important;
       /* Add a subtle border to make selection more visible */
-      border-left: 3px solid rgba(59, 130, 246, 0.8);
-      border-right: 3px solid rgba(59, 130, 246, 0.8);
+      border-left: 3px solid var(--color-accent-primary);
+      border-right: 3px solid var(--color-accent-primary);
     }
 
     /* Adjust lane selection styling for better visibility over group colors */
     .group-content :global(.signal-lane.lane-selected .signal-name-container) {
-      background-color: rgba(59, 130, 246, 0.3) !important;
+      background-color: var(--color-accent-medium) !important;
     }
 
     .group-content :global(.signal-lane.lane-selected .signal-cycles) {
-      background-color: rgba(59, 130, 246, 0.15) !important;
+      background-color: var(--color-accent-light) !important;
     }
 
     /* Unified group selection styling */
     .group-content.group-fully-selected {
-      background-color: rgba(59, 130, 246, 0.1) !important;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.6);
-      border-radius: 0 0 6px 6px;
+      background-color: var(--color-accent-light) !important;
+      box-shadow: 0 0 0 2px var(--color-accent-primary);
+      border-radius: 0 0 var(--radius-sm) var(--radius-sm);
       position: relative;
       z-index: 10;
     }
@@ -926,7 +929,7 @@
     }
 
     .group-spacer:hover {
-      background-color: rgba(59, 130, 246, 0.05);
+      background-color: var(--color-accent-light);
     }
 
     .spacer-name {
@@ -936,14 +939,15 @@
       padding: 0 16px;
       padding-left: calc(16px + var(--indent)); /* Add indentation via padding */
       font-size: 11px;
-      color: #9ca3af;
+      color: var(--color-text-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 500;
       background-color: transparent;
-      border-right: 1px solid var(--border-color); /* Add border like signals */
+      border-right: 1px solid var(--color-border-primary); /* Add border like signals */
       box-sizing: border-box; /* Include padding in width calculation */
       flex-shrink: 0; /* Don't let it shrink */
+      transition: color 0.2s ease, border-color 0.2s ease;
     }
 
     .spacer-wave-area {
@@ -963,12 +967,13 @@
       height: 2px;
       background-image: repeating-linear-gradient(
         to right,
-        #9ca3af 0,
-        #9ca3af 12px,
+        var(--color-text-tertiary) 0,
+        var(--color-text-tertiary) 12px,
         transparent 12px,
         transparent 20px
       );
       opacity: 0.9;
+      transition: background-image 0.2s ease;
     }
 
     .spacer-vertical-line {
@@ -982,9 +987,10 @@
       display: flex;
       align-items: center;
       padding-left: 16px;
-      color: #dc2626;
-      background-color: #fef2f2;
-      border-bottom: 1px solid var(--border-color);
+      color: var(--color-error);
+      background-color: var(--color-error-light);
+      border-bottom: 1px solid var(--color-border-primary);
+      transition: all 0.2s ease;
     }
   </style>
   
