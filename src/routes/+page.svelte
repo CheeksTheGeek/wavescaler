@@ -1,11 +1,14 @@
 <script lang="ts">
 	import WaveformDiagram from '$lib/components/WaveformDiagram.svelte';
 	import WaveformToolbar from '$lib/components/WaveformToolbar.svelte';
-
+	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import SelectionPopup from '$lib/components/SelectionPopup.svelte';
 	import SelectionToolbar from '$lib/components/SelectionToolbar.svelte';
 	import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
-	import { clearLaneSelection } from '$lib/lane-selection-store';
+	import { clearLaneSelection, selectedLanes } from '$lib/lane-selection-store';
+	import { initializeCommandPalette, commandPaletteStore } from '$lib/command-palette';
+	import type { CommandContext } from '$lib/command-palette/types';
+	import { onMount } from 'svelte';
 
 	// Sample WaveJSON data for demonstration
 	let waveformData: WaveJson = {
@@ -491,6 +494,27 @@
 	$: if (!waveformData.config) {
 		waveformData.config = { hscale: 1 };
 	}
+
+	// Initialize command palette
+	onMount(() => {
+		initializeCommandPalette();
+	});
+
+	// Create command context for the command palette
+	$: commandContext = {
+		waveformData,
+		setWaveformData: (data: WaveJson) => {
+			waveformData = data;
+		},
+		selectedCells,
+		clearSelection,
+		selectedLanes: $selectedLanes,
+		clearLaneSelection,
+		isCommandPaletteOpen: $commandPaletteStore.isOpen,
+		closeCommandPalette: () => commandPaletteStore.close(),
+		getSignalAtIndex,
+		updateSignalAtIndex
+	};
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -561,6 +585,9 @@
 		on:invert={handleSelectionAction}
 		on:clear={handleSelectionAction}
 	/>
+
+	<!-- Command Palette -->
+	<CommandPalette context={commandContext} />
 </div>
 
 <style>
