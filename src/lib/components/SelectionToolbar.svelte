@@ -11,6 +11,8 @@
     delete: {};
     duplicate: {};
     invert: {};
+    explicitate: {};
+    implicitate: {};
     clear: {};
   }>();
 
@@ -97,6 +99,22 @@
           <circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.5" fill="none"/>
         </svg>
         Invert
+      </button>
+      <button class="action-btn" on:click={() => dispatch('explicitate', {})}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="7" width="4" height="2" fill="currentColor" opacity="0.6"/>
+          <rect x="10" y="7" width="4" height="2" fill="currentColor"/>
+          <path d="M8 4 L8 12 M5 9 L8 12 L11 9" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        </svg>
+        Explicitate
+      </button>
+      <button class="action-btn" on:click={() => dispatch('implicitate', {})}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2" y="7" width="4" height="2" fill="currentColor"/>
+          <rect x="10" y="7" width="4" height="2" fill="currentColor" opacity="0.6"/>
+          <path d="M8 12 L8 4 M5 7 L8 4 L11 7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        </svg>
+        Implicitate
       </button>
     </div>
 

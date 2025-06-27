@@ -20,7 +20,7 @@
       signalchange: { signalIndex: number; newSignal: WaveSignal };
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
       laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
-      rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
+      rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
       signalreorder: { fromIndex: number; toIndex: number };
       dragstart: { path: number[]; itemType: 'signal'; event: DragEvent };

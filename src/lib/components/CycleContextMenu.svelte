@@ -7,11 +7,15 @@
   export let signalName: string = '';
   export let cycleIndex: number = 0;
   export let currentValue: string = '';
+  export let isImplicit: boolean = false;
+  export let isExplicit: boolean = false;
 
   const dispatch = createEventDispatcher<{
     setvalue: { value: string };
     copy: {};
     paste: {};
+    explicitate: {};
+    implicitate: {};
     close: {};
   }>();
 
@@ -37,6 +41,12 @@
         break;
       case 'paste':
         dispatch('paste', {});
+        break;
+      case 'explicitate':
+        dispatch('explicitate', {});
+        break;
+      case 'implicitate':
+        dispatch('implicitate', {});
         break;
     }
     dispatch('close', {});
@@ -115,6 +125,37 @@
     </div>
 
     <div class="menu-separator"></div>
+    
+    <!-- Signal Mode Operations -->
+    {#if isImplicit || isExplicit}
+      <div class="menu-section">
+        <div class="section-title">Signal Mode</div>
+        {#if isImplicit}
+          <button class="menu-item mode-item" on:click={() => handleAction('explicitate')}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="7" width="4" height="2" fill="currentColor" opacity="0.6"/>
+              <rect x="10" y="7" width="4" height="2" fill="currentColor"/>
+              <path d="M8 4 L8 12 M5 9 L8 12 L11 9" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            </svg>
+            Explicitate
+            <span class="mode-description">Replace dots with values</span>
+          </button>
+        {/if}
+        {#if isExplicit}
+          <button class="menu-item mode-item" on:click={() => handleAction('implicitate')}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <rect x="2" y="7" width="4" height="2" fill="currentColor"/>
+              <rect x="10" y="7" width="4" height="2" fill="currentColor" opacity="0.6"/>
+              <path d="M8 12 L8 4 M5 7 L8 4 L11 7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            </svg>
+            Implicitate
+            <span class="mode-description">Use dots for repeating values</span>
+          </button>
+        {/if}
+      </div>
+
+      <div class="menu-separator"></div>
+    {/if}
     
     <button class="menu-item" on:click={() => handleAction('copy')}>
       <svg width="16" height="16" viewBox="0 0 16 16">
@@ -233,5 +274,24 @@
 
   .menu-item svg {
     flex-shrink: 0;
+  }
+
+  .mode-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 10px 12px;
+  }
+
+  .mode-item svg {
+    align-self: flex-start;
+    margin-bottom: 2px;
+  }
+
+  .mode-description {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    margin-left: 0;
+    font-weight: 400;
   }
 </style> 

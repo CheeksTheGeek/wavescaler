@@ -351,6 +351,12 @@
 			case 'clear':
 				clearSelection();
 				break;
+			case 'explicitate':
+				explicitateSelection();
+				break;
+			case 'implicitate':
+				implicitateSelection();
+				break;
 		}
 	}
 
@@ -436,6 +442,74 @@
 				}
 			}
 		});
+		waveformData = waveformData; // Trigger reactivity
+	}
+
+	function explicitateSelection() {
+		// Convert implicit cells (.) to explicit (hardcoded values)
+		selectedCells.forEach(cell => {
+			const signal = getSignalAtIndex(cell.signalIndex);
+			if (signal) {
+				let waveChars = signal.wave.split('');
+				
+				// Only process this specific cell if it's implicit
+				if (cell.cycleIndex < waveChars.length && waveChars[cell.cycleIndex] === '.') {
+					// Find the effective character for this specific cell
+					let effectivePrevChar: string | null = null;
+					
+					// Look backwards to find the last non-dot character
+					for (let i = cell.cycleIndex - 1; i >= 0; i--) {
+						if (waveChars[i] !== '.') {
+							effectivePrevChar = waveChars[i];
+							break;
+						}
+					}
+					
+					// Replace only this specific dot with the effective character
+					if (effectivePrevChar) {
+						waveChars[cell.cycleIndex] = effectivePrevChar;
+						
+						const newSignal = { ...signal, wave: waveChars.join('') };
+						updateSignalAtIndex(cell.signalIndex, newSignal);
+					}
+				}
+			}
+		});
+		
+		waveformData = waveformData; // Trigger reactivity
+	}
+
+	function implicitateSelection() {
+		// Convert explicit cells to implicit where possible (replace consecutive values with .)
+		selectedCells.forEach(cell => {
+			const signal = getSignalAtIndex(cell.signalIndex);
+			if (signal) {
+				let waveChars = signal.wave.split('');
+				
+				// Only process this specific cell if it's explicit and can be collapsed
+				if (cell.cycleIndex < waveChars.length && waveChars[cell.cycleIndex] !== '.') {
+					const currentChar = waveChars[cell.cycleIndex];
+					
+					// Check if this cell can be safely collapsed to a dot
+					// Look at the previous character to see if it's the same
+					if (cell.cycleIndex > 0) {
+						const prevChar = waveChars[cell.cycleIndex - 1];
+						
+						if (currentChar === prevChar && currentChar !== '' && currentChar !== '.') {
+							// Special handling for data signals - don't collapse different data values
+							if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
+								// Safe to collapse this character to a dot
+								waveChars[cell.cycleIndex] = '.';
+								
+								const newSignal = { ...signal, wave: waveChars.join('') };
+								updateSignalAtIndex(cell.signalIndex, newSignal);
+							}
+						}
+					}
+				}
+			}
+		});
+		
 		waveformData = waveformData; // Trigger reactivity
 	}
 
@@ -591,6 +665,8 @@
 		on:delete={handleSelectionAction}
 		on:duplicate={handleSelectionAction}
 		on:invert={handleSelectionAction}
+		on:explicitate={handleSelectionAction}
+		on:implicitate={handleSelectionAction}
 		on:clear={handleSelectionAction}
 	/>
 

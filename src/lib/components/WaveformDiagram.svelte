@@ -29,6 +29,8 @@
   let contextMenuSignalIndex = 0;
   let contextMenuCycleIndex = 0;
   let contextMenuCurrentValue = '';
+  let contextMenuIsImplicit = false;
+  let contextMenuIsExplicit = false;
   
   // Drag and drop state for spacers
   let spacerDraggedOverPosition: { [key: number]: 'above' | 'below' | null } = {};
@@ -178,8 +180,8 @@
       }
     }
 
-    function handleRightClick(event: CustomEvent<{ signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string }>) {
-      const { signalIndex, cycleIndex, x, y, currentValue } = event.detail;
+    function handleRightClick(event: CustomEvent<{ signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean }>) {
+      const { signalIndex, cycleIndex, x, y, currentValue, isImplicit, isExplicit } = event.detail;
       
       // Find the signal name
       let signalName = '';
@@ -211,6 +213,8 @@
       contextMenuSignalIndex = signalIndex;
       contextMenuCycleIndex = cycleIndex;
       contextMenuCurrentValue = currentValue;
+      contextMenuIsImplicit = isImplicit;
+      contextMenuIsExplicit = isExplicit;
       contextMenuX = x;
       contextMenuY = y;
       contextMenuVisible = true;
@@ -228,6 +232,124 @@
 
     function handleContextMenuClose() {
       contextMenuVisible = false;
+    }
+
+    function handleContextMenuExplicitate() {
+      // Explicitate the selected signal - convert implicit to explicit
+      const signal = findSignalByIndex(contextMenuSignalIndex);
+      if (signal) {
+        let waveChars = signal.wave.split('');
+        
+        // Only process the specific cell that was right-clicked
+        if (contextMenuCycleIndex < waveChars.length && waveChars[contextMenuCycleIndex] === '.') {
+          // Find the effective character for this specific cell
+          let effectivePrevChar: string | null = null;
+          
+          // Look backwards to find the last non-dot character
+          for (let i = contextMenuCycleIndex - 1; i >= 0; i--) {
+            if (waveChars[i] !== '.') {
+              effectivePrevChar = waveChars[i];
+              break;
+            }
+          }
+          
+          // Replace only this specific dot with the effective character
+          if (effectivePrevChar) {
+            waveChars[contextMenuCycleIndex] = effectivePrevChar;
+          }
+          
+          const newSignal = { ...signal, wave: waveChars.join('') };
+          updateSignalAtIndex(contextMenuSignalIndex, newSignal);
+          dispatch('structurechange', { newWaveJson: waveJson });
+        }
+      }
+      contextMenuVisible = false;
+    }
+
+    function handleContextMenuImplicitate() {
+      // Implicitate the selected signal - convert explicit to implicit where possible
+      const signal = findSignalByIndex(contextMenuSignalIndex);
+      if (signal) {
+        let waveChars = signal.wave.split('');
+        
+        // Only process the specific cell that was right-clicked
+        if (contextMenuCycleIndex < waveChars.length && waveChars[contextMenuCycleIndex] !== '.') {
+          const currentChar = waveChars[contextMenuCycleIndex];
+          
+          // Check if this cell can be safely collapsed to a dot
+          // Look at the previous character to see if it's the same
+          if (contextMenuCycleIndex > 0) {
+            const prevChar = waveChars[contextMenuCycleIndex - 1];
+            
+            if (currentChar === prevChar && currentChar !== '' && currentChar !== '.') {
+              // Special handling for data signals - don't collapse different data values
+              if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
+                // Safe to collapse this character to a dot
+                waveChars[contextMenuCycleIndex] = '.';
+                
+                const newSignal = { ...signal, wave: waveChars.join('') };
+                updateSignalAtIndex(contextMenuSignalIndex, newSignal);
+                dispatch('structurechange', { newWaveJson: waveJson });
+              }
+            }
+          }
+        }
+      }
+      contextMenuVisible = false;
+    }
+
+    function findSignalByIndex(signalIndex: number): WaveSignal | null {
+      let currentIndex = 0;
+      for (const item of waveJson.signal) {
+        if (Array.isArray(item)) {
+          // It's a group - iterate through its signals
+          for (let i = 1; i < item.length; i++) {
+            const subItem = item[i];
+            if (currentIndex === signalIndex && subItem && typeof subItem === 'object' && !Array.isArray(subItem) && 'name' in subItem) {
+              return subItem as WaveSignal;
+            }
+            currentIndex++;
+          }
+        } else if (item && typeof item === 'object' && 'name' in item) {
+          // It's a signal
+          if (currentIndex === signalIndex) {
+            return item as WaveSignal;
+          }
+          currentIndex++;
+        } else {
+          // It's a spacer or unknown
+          currentIndex++;
+        }
+      }
+      return null;
+    }
+
+    function updateSignalAtIndex(signalIndex: number, newSignal: WaveSignal) {
+      let currentIndex = 0;
+      for (let i = 0; i < waveJson.signal.length; i++) {
+        const item = waveJson.signal[i];
+        if (Array.isArray(item)) {
+          // It's a group - iterate through its signals
+          for (let j = 1; j < item.length; j++) {
+            const subItem = item[j];
+            if (currentIndex === signalIndex && subItem && typeof subItem === 'object' && !Array.isArray(subItem) && 'name' in subItem) {
+              item[j] = newSignal;
+              return;
+            }
+            currentIndex++;
+          }
+        } else if (item && typeof item === 'object' && 'name' in item) {
+          // It's a signal
+          if (currentIndex === signalIndex) {
+            waveJson.signal[i] = newSignal;
+            return;
+          }
+          currentIndex++;
+        } else {
+          // It's a spacer or unknown
+          currentIndex++;
+        }
+      }
     }
 
     // Resize handlers
@@ -648,8 +770,12 @@
       signalName={contextMenuSignalName}
       cycleIndex={contextMenuCycleIndex}
       currentValue={contextMenuCurrentValue}
+      isImplicit={contextMenuIsImplicit}
+      isExplicit={contextMenuIsExplicit}
       on:setvalue={handleContextMenuSetValue}
       on:close={handleContextMenuClose}
+      on:explicitate={handleContextMenuExplicitate}
+      on:implicitate={handleContextMenuImplicitate}
     />
   </div>
   

@@ -21,8 +21,12 @@
     cyclechange: { cycleIndex: number; newChar: string };
     bulkcyclechange: { startIndex: number; endIndex: number; newChar: string };
     cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
-    rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
+    rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
   }>();
+
+  // Determine if this cycle is implicit (using . notation) vs explicit (hardcoded)
+  $: isImplicit = cycle.originalChar === '.';
+  $: isExplicit = !isImplicit && cycle.originalChar !== '';
 
   // Get visual representation for the cycle
   function getCycleType(): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
@@ -88,7 +92,9 @@
       cycleIndex: cycle.cycleIndex,
       x: event.clientX,
       y: event.clientY,
-      currentValue: cycle.effectiveChar || ''
+      currentValue: cycle.effectiveChar || '',
+      isImplicit: isImplicit,
+      isExplicit: isExplicit
     });
   }
 
@@ -199,6 +205,23 @@
   <!-- Interactive overlay for empty cycles -->
   {#if cycle.isInteractive && cycleType === 'empty'}
     <div class="empty-overlay">+</div>
+  {/if}
+  
+  <!-- Implicit/Explicit indicator -->
+  {#if isImplicit}
+    <div class="signal-mode-indicator implicit" title="Implicit: Repeating previous value (.)">
+      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+        <circle cx="4" cy="2" r="0.8" fill="currentColor" opacity="0.7"/>
+        <circle cx="4" cy="4" r="0.8" fill="currentColor" opacity="0.7"/>
+        <circle cx="4" cy="6" r="0.8" fill="currentColor" opacity="0.7"/>
+      </svg>
+    </div>
+  {:else if isExplicit}
+    <div class="signal-mode-indicator explicit" title="Explicit: Hardcoded value">
+      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+        <rect x="2" y="2" width="4" height="4" fill="currentColor" opacity="0.8"/>
+      </svg>
+    </div>
   {/if}
 </div>
 
@@ -614,5 +637,57 @@
   .signal-cycle:focus {
     outline: 2px solid var(--color-accent-primary);
     outline-offset: -2px;
+  }
+
+  /* Signal mode indicators */
+  .signal-mode-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: all 0.2s ease;
+  }
+
+  .signal-cycle:hover .signal-mode-indicator {
+    opacity: 1;
+  }
+
+  .signal-mode-indicator.implicit {
+    background-color: rgba(245, 158, 11, 0.8);
+    color: var(--color-text-inverse);
+  }
+
+  .signal-mode-indicator.explicit {
+    background-color: rgba(59, 130, 246, 0.8);
+    color: var(--color-text-inverse);
+  }
+
+  /* Show indicators when cell is selected */
+  .signal-cycle.selected .signal-mode-indicator {
+    opacity: 1;
+  }
+
+  /* Responsive indicator sizing */
+  @media (max-width: 768px) {
+    .signal-mode-indicator {
+      width: 10px;
+      height: 10px;
+      top: 1px;
+      right: 1px;
+    }
+    
+    .signal-mode-indicator svg {
+      width: 6px;
+      height: 6px;
+    }
   }
 </style> 

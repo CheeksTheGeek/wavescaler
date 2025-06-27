@@ -23,7 +23,7 @@
       cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
       laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
       groupselection: { groupName: string; signalIndices: number[]; shiftKey: boolean };
-      rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string };
+      rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
       signalreorder: { fromIndex: number; toIndex: number };
       groupreorder: { fromIndex: number; toIndex: number };
@@ -499,8 +499,8 @@
           // This is a cross-context move - moving an item from outside into this group
           // We need to dispatch a special event to handle this at the top level
           dispatch('movetogroup', { 
-            fromIndex, 
-            toGroupIndex: parentIndex, 
+            fromIndex: fromIndex, 
+            toGroupIndex: parentIndex,
             itemType: isGroup ? 'group' : isSpacer ? 'spacer' : 'signal'
           });
         }
