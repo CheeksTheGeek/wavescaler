@@ -18,7 +18,7 @@
   export let hasReducedRightBorder: boolean = false;
 
   const dispatch = createEventDispatcher<{
-    cyclechange: { cycleIndex: number; newChar: string };
+    cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
     bulkcyclechange: { startIndex: number; endIndex: number; newChar: string };
     cellselection: { signalIndex: number; cycleIndex: number; shiftKey: boolean };
     rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
@@ -81,20 +81,32 @@
     });
   }
 
+  function handleCycleChange(newChar: string) {
+    dispatch('cyclechange', {
+      signalIndex,
+      cycleIndex: cycle.cycleIndex,
+      newChar
+    });
+  }
+
   function handleRightClick(event: MouseEvent) {
     event.preventDefault();
     
-    // Only show context menu for interactive cycles
-    if (!cycle.isInteractive) return;
+    const target = event.currentTarget as HTMLElement;
+    if (!target) return;
+    
+    const rect = target.getBoundingClientRect();
+    const x = event.clientX;
+    const y = event.clientY;
     
     dispatch('rightclick', {
       signalIndex,
       cycleIndex: cycle.cycleIndex,
-      x: event.clientX,
-      y: event.clientY,
-      currentValue: cycle.effectiveChar || '',
-      isImplicit: isImplicit,
-      isExplicit: isExplicit
+      x,
+      y,
+      currentValue: cycle.effectiveChar,
+      isImplicit: cycle.originalChar === '.',
+      isExplicit: cycle.originalChar !== '.'
     });
   }
 
@@ -304,13 +316,7 @@
     transition: background-color 0.2s ease;
   }
 
-  .high-line {
-    /* Position controlled by CSS variable */
-  }
-
-  .low-line {
-    /* Position controlled by CSS variable */
-  }
+  /* high-line and low-line positioning is controlled by CSS variables in parent */
 
   /* Data signal shapes */
   .data-shape {

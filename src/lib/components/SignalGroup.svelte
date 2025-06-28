@@ -30,6 +30,7 @@
       movetogroup: { fromIndex: number; toGroupIndex: number; itemType: 'signal' | 'group' | 'spacer' };
       dragstart: { path: number[]; itemType: 'signal' | 'group' | 'spacer'; event: DragEvent };
       drop: { targetPath: number[]; position: 'before' | 'after' | 'inside'; event: DragEvent };
+      cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
     }>();
   
     // Define 20 major colors for round-robin selection
@@ -507,6 +508,9 @@
       }
     }
 
+    function handleCycleChange(event: CustomEvent<{ signalIndex: number; cycleIndex: number; newChar: string }>) {
+      dispatch('cyclechange', event.detail);
+    }
 
   
   </script>
@@ -521,6 +525,9 @@
          class:group-fully-selected={isGroupFullySelected}
          style="background-color: {isGroupFullySelected ? 'rgba(59, 130, 246, 0.2)' : groupHeaderColor};"
          draggable="true"
+         role="button"
+         aria-label="Drag to reorder group"
+         tabindex="0"
          on:dragstart={handleGroupDragStart}
          on:dragend={handleGroupDragEnd}
          on:dragover={handleGroupDragOver}
@@ -545,7 +552,6 @@
             bind:value={nameInput}
             on:blur={finishEditingName}
             on:keydown={handleNameKeydown}
-            autofocus
           />
         {:else}
           <div class="group-name-display">
@@ -589,6 +595,8 @@
            class:has-selected-lanes={hasSelectedLanes}
            class:group-fully-selected={isGroupFullySelected}
            style="--group-bg-color: {groupBackgroundColor};"
+           role="region"
+           aria-label="Group content drop zone"
            on:dragover={handleGroupContentDragOver}
            on:drop={handleGroupContentDrop}>
         {#each groupItems as item, index (index)}
@@ -610,6 +618,7 @@
               on:signalreorder={handleInternalReorder}
               on:dragstart={(e) => dispatch('dragstart', e.detail)}
               on:drop={(e) => dispatch('drop', e.detail)}
+              on:cyclechange={handleCycleChange}
             />
           {:else if itemType === 'group'}
             <svelte:self
@@ -637,6 +646,9 @@
           {:else if itemType === 'spacer'}
             <div class="group-spacer" 
                  draggable="true"
+                 role="button"
+                 aria-label="Drag to reorder spacer"
+                 tabindex="0"
                  on:dragstart={(e) => handleSpacerDragStart(e, index)}
                  on:dragover={(e) => handleSpacerDragOver(e, index)}
                  on:dragleave={(e) => handleSpacerDragLeave(e, index)}

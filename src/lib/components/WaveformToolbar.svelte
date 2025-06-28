@@ -2,6 +2,12 @@
   import { createEventDispatcher } from 'svelte';
   import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
   import { parseWaveJson } from '$lib/wavejson-parser';
+  import { historyStore, canUndo, canRedo } from '$lib/history-store';
+
+  // Subscribe to history store to force reactivity
+  $: historyState = $historyStore;
+  $: undoEnabled = $canUndo;
+  $: redoEnabled = $canRedo;
 
   export let waveJson: WaveJson;
 
@@ -12,6 +18,8 @@
     clear: {};
     export: { format: 'json' | 'svg' | 'png' };
     import: { waveJson: WaveJson };
+    undo: {};
+    redo: {};
   }>();
 
   let fileInput: HTMLInputElement;
@@ -144,10 +152,41 @@
     reader.readAsText(file);
   }
 
+  function handleUndo() {
+    if (undoEnabled) {
+      dispatch('undo', {});
+    }
+  }
+
+  function handleRedo() {
+    if (redoEnabled) {
+      dispatch('redo', {});
+    }
+  }
 
 </script>
 
 <div class="waveform-toolbar">
+  <div class="toolbar-section">
+    <h3>History</h3>
+    <div class="history-buttons">
+      <button class="toolbar-button compact" disabled={!undoEnabled} on:click={handleUndo}>
+        <svg width="14" height="14" viewBox="0 0 16 16">
+          <path d="M3 8 A5 5 0 0 1 13 8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <path d="M3 8 L6 5 M3 8 L6 11" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        </svg>
+        Undo
+      </button>
+      <button class="toolbar-button compact" disabled={!redoEnabled} on:click={handleRedo}>
+        <svg width="14" height="14" viewBox="0 0 16 16">
+          <path d="M13 8 A5 5 0 0 0 3 8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <path d="M13 8 L10 5 M13 8 L10 11" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        </svg>
+        Redo
+      </button>
+    </div>
+  </div>
+
   <div class="toolbar-section">
     <h3>Add Elements</h3>
     <button class="toolbar-button primary" on:click={addSignal}>
@@ -402,5 +441,30 @@
     display: flex;
     gap: 8px;
     margin-top: 8px;
+  }
+
+  .history-buttons {
+    display: flex;
+    gap: 4px;
+  }
+
+  .toolbar-button.compact {
+    padding: 4px 8px;
+    font-size: 12px;
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-primary);
+  }
+
+  .toolbar-button.compact:hover:not(:disabled) {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
+    transform: none;
+    box-shadow: none;
+  }
+
+  .toolbar-button.compact:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style> 

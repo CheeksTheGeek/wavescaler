@@ -1,5 +1,5 @@
 import type { CommandAction, CommandCategory } from '../types';
-import type { WaveGroup } from '$lib/wavejson-types';
+import type { WaveGroup, WaveJson } from '$lib/wavejson-types';
 import { themeStore } from '$lib/theme-store';
 
 // Core command categories
@@ -136,64 +136,7 @@ export const coreCommands: CommandAction[] = [
     }
   },
   
-  // Edit commands
-  {
-    id: 'set-high',
-    title: 'Set to High (1)',
-    description: 'Set selected cells to high state',
-    category: 'edit',
-    icon: '⬆️',
-    keywords: ['high', '1', 'set'],
-    shortcut: '1',
-    isAvailable: (context) => context.selectedCells.length > 0,
-    execute: async () => {
-      // This would need to integrate with the actual signal update logic
-      console.log('Setting selected cells to high');
-    }
-  },
-  
-  {
-    id: 'set-low',
-    title: 'Set to Low (0)',
-    description: 'Set selected cells to low state',
-    category: 'edit',
-    icon: '⬇️',
-    keywords: ['low', '0', 'set'],
-    shortcut: '0',
-    isAvailable: (context) => context.selectedCells.length > 0,
-    execute: async () => {
-      // This would need to integrate with the actual signal update logic
-      console.log('Setting selected cells to low');
-    }
-  },
-  
-  {
-    id: 'set-unknown',
-    title: 'Set to Unknown (X)',
-    description: 'Set selected cells to unknown state',
-    category: 'edit',
-    icon: '❓',
-    keywords: ['unknown', 'x', 'undefined'],
-    shortcut: 'x',
-    isAvailable: (context) => context.selectedCells.length > 0,
-    execute: async () => {
-      console.log('Setting selected cells to unknown');
-    }
-  },
-  
-  {
-    id: 'invert-selection',
-    title: 'Invert Selection',
-    description: 'Invert binary values in selected cells (0↔1)',
-    category: 'edit',
-    icon: '🔄',
-    keywords: ['invert', 'toggle', 'flip'],
-    shortcut: 'Ctrl+Shift+I',
-    isAvailable: (context) => context.selectedCells.length > 0,
-    execute: async () => {
-      console.log('Inverting selected cells');
-    }
-  },
+  // Edit commands - Note: Set value commands are handled by SelectionToolbar component
   
   {
     id: 'explicitate-selection',
@@ -363,6 +306,65 @@ export const coreCommands: CommandAction[] = [
     shortcut: 'Ctrl+Shift+T',
     execute: async () => {
       themeStore.toggleTheme();
+    }
+  },
+  
+  // History commands
+  {
+    id: 'undo',
+    title: 'Undo',
+    description: 'Undo the last action',
+    category: 'edit',
+    icon: '↶',
+    keywords: ['undo', 'revert', 'back'],
+    shortcut: 'Ctrl+U',
+    execute: async (context) => {
+      // Import history actions dynamically
+      const { historyStore } = await import('$lib/history-store');
+      let previousState: WaveJson | null = null;
+      historyStore.update(history => {
+        if (history.currentIndex > 0) {
+          previousState = history.states[history.currentIndex - 1].waveformData;
+          return {
+            ...history,
+            currentIndex: history.currentIndex - 1
+          };
+        }
+        return history;
+      });
+      if (previousState) {
+        context.setWaveformData(previousState);
+        context.clearSelection();
+      }
+    }
+  },
+
+  {
+    id: 'redo',
+    title: 'Redo',
+    description: 'Redo the last undone action',
+    category: 'edit',
+    icon: '↷',
+    keywords: ['redo', 'forward', 'restore'],
+    shortcut: 'Ctrl+R',
+    execute: async (context) => {
+      // Import history actions dynamically
+      const { historyStore } = await import('$lib/history-store');
+      let nextState: WaveJson | null = null;
+      historyStore.update(history => {
+        if (history.currentIndex < history.states.length - 1) {
+          nextState = history.states[history.currentIndex + 1].waveformData;
+          return {
+            ...history,
+            currentIndex: history.currentIndex + 1
+          };
+        }
+        return history;
+      });
+      if (nextState) {
+        context.setWaveformData(nextState);
+        context.clearSelection();
+      }
     }
   },
   

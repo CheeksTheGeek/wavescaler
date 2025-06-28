@@ -298,7 +298,6 @@
     font-size: 16px;
     color: var(--color-text-primary);
     background: transparent;
-    placeholder-color: var(--color-text-placeholder);
   }
   
   .search-input::placeholder {

@@ -17,7 +17,6 @@ commandRegistry.registerMany(coreCommands);
 
 // Export a function to initialize the command palette in the app
 export function initializeCommandPalette() {
-  // This can be extended to load additional command modules
-  // or perform any other initialization tasks
-  console.log('Command palette initialized with', coreCommands.length, 'commands');
+	// Register all core commands
+	commandRegistry.registerMany(coreCommands);
 } 

@@ -260,6 +260,7 @@
     "
     on:click={handleClick}
     on:mousedown={handleMouseDown}
+    on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(new MouseEvent('click')); } }}
     role="button"
     tabindex="0"
     title="Transition: {fromCycle.effectiveChar} → {toCycle.effectiveChar}"
@@ -324,13 +325,7 @@
     transition: background-color 0.2s ease;
   }
 
-  .rising {
-    /* Rising edge: uses CSS calc for perfect positioning */
-  }
-
-  .falling {
-    /* Falling edge: uses CSS calc for perfect positioning */
-  }
+  /* Rising and falling edge positioning is handled by CSS calc in parent styles */
 
   /* Cross transition container */
   .cross-transition {

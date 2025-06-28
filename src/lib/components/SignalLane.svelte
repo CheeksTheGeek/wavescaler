@@ -25,6 +25,8 @@
       signalreorder: { fromIndex: number; toIndex: number };
       dragstart: { path: number[]; itemType: 'signal'; event: DragEvent };
       drop: { targetPath: number[]; position: 'before' | 'after'; event: DragEvent };
+      cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
+      bulkcyclechange: { signalIndex: number; startIndex: number; endIndex: number; newChar: string };
     }>();
   
     interface ProcessedCycle {
@@ -265,54 +267,22 @@
       });
     }
   
-    function handleCycleChange(cycleIndex: number, newChar: string) {
-      let waveChars = signal.wave.split('');
-      
-      // Extend wave string if necessary
-      while (waveChars.length <= cycleIndex) {
-        waveChars.push('');
-      }
-      
-      // Update the character
-      waveChars[cycleIndex] = newChar;
-      
-      // Create new signal object
-      const newSignal = {
-        ...signal,
-        wave: waveChars.join('')
-      };
-      
-      dispatch('signalchange', { signalIndex, newSignal });
-      
-      // Force immediate recalculation of transitions after the DOM updates
-      if (typeof requestAnimationFrame !== 'undefined') {
-        requestAnimationFrame(() => {
-          if (signalCyclesContainer) {
-            smoothUpdateTransitions();
-          }
-        });
-      }
+    function handleCycleChange(event: CustomEvent<{ cycleIndex: number; newChar: string }>) {
+      dispatch('cyclechange', {
+        signalIndex,
+        cycleIndex: event.detail.cycleIndex,
+        newChar: event.detail.newChar
+      });
     }
   
-    function handleBulkCycleChange(startIndex: number, endIndex: number, newChar: string) {
-      let waveChars = signal.wave.split('');
-      
-      // Extend wave string if necessary
-      while (waveChars.length <= endIndex) {
-        waveChars.push('');
-      }
-      
-      // Update all characters in range
-      for (let i = startIndex; i <= endIndex; i++) {
-        waveChars[i] = newChar;
-      }
-      
-      const newSignal = {
-        ...signal,
-        wave: waveChars.join('')
-      };
-      
-      dispatch('signalchange', { signalIndex, newSignal });
+    function handleBulkCycleChange(event: CustomEvent<{ startIndex: number; endIndex: number; newChar: string }>) {
+      const { startIndex, endIndex, newChar } = event.detail;
+      dispatch('bulkcyclechange', {
+        signalIndex,
+        startIndex,
+        endIndex,
+        newChar
+      });
     }
   
     function startEditingName() {
@@ -563,6 +533,9 @@
     <!-- Signal Name -->
     <div class="signal-name-container"
          draggable="true"
+         role="button"
+         aria-label="Drag to reorder signal"
+         tabindex="0"
          on:dragstart={handleDragStart}
          on:dragend={handleDragEnd}
          on:dragover={handleDragOver}
@@ -615,13 +588,13 @@
           {cycle}
           {hscale}
           {signalIndex}
-          {isSelected}
-          {hasLeftTransition}
-          {hasRightTransition}
+          isSelected={isSelected}
+          hasLeftTransition={hasLeftTransition}
+          hasRightTransition={hasRightTransition}
           hasReducedLeftBorder={reducedBorders.left}
           hasReducedRightBorder={reducedBorders.right}
-          on:cyclechange={(e) => handleCycleChange(e.detail.cycleIndex, e.detail.newChar)}
-          on:bulkcyclechange={(e) => handleBulkCycleChange(e.detail.startIndex, e.detail.endIndex, e.detail.newChar)}
+          on:cyclechange={handleCycleChange}
+          on:bulkcyclechange={handleBulkCycleChange}
           on:cellselection={(e) => dispatch('cellselection', e.detail)}
           on:rightclick={(e) => dispatch('rightclick', e.detail)}
         />

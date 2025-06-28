@@ -5,10 +5,12 @@
 	import SelectionPopup from '$lib/components/SelectionPopup.svelte';
 	import SelectionToolbar from '$lib/components/SelectionToolbar.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import CycleContextMenu from '$lib/components/CycleContextMenu.svelte';
 	import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
 	import { clearLaneSelection, selectedLanes } from '$lib/lane-selection-store';
 	import { initializeCommandPalette, commandPaletteStore } from '$lib/command-palette';
 	import type { CommandContext } from '$lib/command-palette/types';
+	import { createHistoryActions, canUndo, canRedo } from '$lib/history-store';
 	import { onMount } from 'svelte';
 
 	// Sample WaveJSON data for demonstration
@@ -29,7 +31,25 @@
 		config: { hscale: 1 }
 	};
 
+	// Create history actions with a callback to update waveformData
+	const history = createHistoryActions((newData) => {
+		waveformData = newData;
+		clearSelection(); // Clear selection after undo/redo
+	});
 
+	// Initialize history store on mount
+	onMount(() => {
+		// Initialize command palette
+		initializeCommandPalette();
+
+		// Initialize history with initial state
+		history.initialize(waveformData);
+	});
+
+	// Helper function to save state to history
+	function saveStateToHistory(description: string) {
+		history.saveState(waveformData, description);
+	}
 
 	// Selection state
 	interface CellSelection {
@@ -42,22 +62,43 @@
 	let isShiftSelecting = false;
 	let lastSelectedCell: CellSelection | null = null;
 
+	// Context menu state
+	let contextMenuVisible = false;
+	let contextMenuX = 0;
+	let contextMenuY = 0;
+	let contextMenuSignalName = '';
+	let contextMenuSignalIndex = 0;
+	let contextMenuCycleIndex = 0;
+	let contextMenuCurrentValue = '';
+	let contextMenuIsImplicit = false;
+	let contextMenuIsExplicit = false;
+
 	function handleAddSignal(event: CustomEvent<{ signal: WaveSignal }>) {
-		waveformData.signal = [...waveformData.signal, event.detail.signal];
-		waveformData = waveformData; // Trigger reactivity
+		saveStateToHistory('Add signal');
+		waveformData = {
+			...waveformData,
+			signal: [...waveformData.signal, event.detail.signal]
+		};
 	}
 
 	function handleAddGroup(event: CustomEvent<{ group: WaveGroup }>) {
-		waveformData.signal = [...waveformData.signal, event.detail.group];
-		waveformData = waveformData; // Trigger reactivity
+		saveStateToHistory('Add group');
+		waveformData = {
+			...waveformData,
+			signal: [...waveformData.signal, event.detail.group]
+		};
 	}
 
 	function handleAddSpacer() {
-		waveformData.signal = [...waveformData.signal, {}];
-		waveformData = waveformData; // Trigger reactivity
+		saveStateToHistory('Add spacer');
+		waveformData = {
+			...waveformData,
+			signal: [...waveformData.signal, {}]
+		};
 	}
 
 	function handleClear() {
+		saveStateToHistory('Clear waveform');
 		waveformData = {
 			signal: [],
 			config: { hscale: 1 }
@@ -81,24 +122,40 @@
 	}
 
 	function handleImport(event: CustomEvent<{ waveJson: WaveJson }>) {
+		saveStateToHistory('Import waveform');
 		waveformData = event.detail.waveJson;
 	}
-
-
 
 	function handleSignalChange(event: CustomEvent<{ signalIndex: number; newSignal: WaveSignal }>) {
 		const { signalIndex, newSignal } = event.detail;
 		if (waveformData.signal[signalIndex]) {
-			waveformData.signal[signalIndex] = newSignal;
-			waveformData = waveformData; // Trigger reactivity
+			// Create new waveform data first
+			const newWaveformData = {
+				...waveformData,
+				signal: waveformData.signal.map((item, idx) => 
+					idx === signalIndex ? newSignal : item
+				)
+			};
+			
+			// Only save state and update if the data actually changed
+			const currentStr = JSON.stringify(waveformData);
+			const newStr = JSON.stringify(newWaveformData);
+			if (currentStr !== newStr) {
+				saveStateToHistory('Modify signal');
+				waveformData = newWaveformData;
+			}
 		}
 	}
 
 	function handleStructureChange(event: CustomEvent<{ newWaveJson: WaveJson }>) {
-		waveformData = event.detail.newWaveJson;
+		// Only save state if the new data is actually different
+		const currentStr = JSON.stringify(waveformData);
+		const newStr = JSON.stringify(event.detail.newWaveJson);
+		if (currentStr !== newStr) {
+			saveStateToHistory('Structure change');
+			waveformData = event.detail.newWaveJson;
+		}
 	}
-
-
 
 	// Selection management functions
 	function handleCellSelection(event: CustomEvent<{ signalIndex: number; cycleIndex: number; shiftKey: boolean }>) {
@@ -361,50 +418,88 @@
 	}
 
 	function applyValueToSelection(value: string) {
-		// Apply the value to all selected cells
-		selectedCells.forEach(cell => {
-			const signal = getSignalAtIndex(cell.signalIndex);
-			if (signal) {
-				let waveChars = signal.wave.split('');
-				while (waveChars.length <= cell.cycleIndex) {
-					waveChars.push('.');
+		// Create a new waveform state first
+		const newWaveformData = {
+			...waveformData,
+			signal: waveformData.signal.map((item, idx) => {
+				if (Array.isArray(item)) {
+					// Handle group
+					return item.map((subItem, subIdx) => {
+						if (subIdx === 0) return subItem; // Group name
+						const subIndex = getSignalFlatIndex(idx, subIdx - 1);
+						if (selectedCells.some(cell => cell.signalIndex === subIndex)) {
+							const signal = subItem as WaveSignal;
+							let waveChars = signal.wave.split('');
+							selectedCells
+								.filter(cell => cell.signalIndex === subIndex)
+								.forEach(cell => {
+									while (waveChars.length <= cell.cycleIndex) {
+										waveChars.push('');
+									}
+									waveChars[cell.cycleIndex] = value;
+								});
+							return { ...signal, wave: waveChars.join('') };
+						}
+						return subItem;
+					});
+				} else {
+					// Handle signal or spacer
+					const flatIndex = getSignalFlatIndex(idx);
+					if (selectedCells.some(cell => cell.signalIndex === flatIndex)) {
+						const signal = item as WaveSignal;
+						let waveChars = signal.wave.split('');
+						selectedCells
+							.filter(cell => cell.signalIndex === flatIndex)
+							.forEach(cell => {
+								while (waveChars.length <= cell.cycleIndex) {
+									waveChars.push('');
+								}
+								waveChars[cell.cycleIndex] = value;
+							});
+						return { ...signal, wave: waveChars.join('') };
+					}
+					return item;
 				}
-				waveChars[cell.cycleIndex] = value;
-				
-				const newSignal = { ...signal, wave: waveChars.join('') };
-				updateSignalAtIndex(cell.signalIndex, newSignal);
-			}
-		});
-		waveformData = waveformData; // Trigger reactivity
+			})
+		} as WaveJson;
+
+		// Update the waveform data
+		waveformData = newWaveformData;
+
+		// Wait for the next tick to ensure the store sees the updated state
+		setTimeout(() => {
+			// Save state after updating waveform data and waiting for reactivity
+			saveStateToHistory('Apply value to selection');
+		}, 0);
 	}
 
 	function updateSignalAtIndex(index: number, newSignal: WaveSignal) {
-		// Helper to update signal in potentially nested structure
-		let currentIndex = 0;
-		for (let i = 0; i < waveformData.signal.length; i++) {
-			const item = waveformData.signal[i];
-			if (Array.isArray(item)) {
-				// It's a group - iterate through its signals
-				for (let j = 1; j < item.length; j++) {
-					const subItem = item[j];
-					if (currentIndex === index && subItem && typeof subItem === 'object' && !Array.isArray(subItem) && 'name' in subItem) {
-						item[j] = newSignal;
-						return;
-					}
-					currentIndex++;
+		// Only save state if the signal is actually different
+		const currentSignal = getSignalAtIndex(index);
+		if (!currentSignal || JSON.stringify(currentSignal) === JSON.stringify(newSignal)) return;
+
+		// Create a new waveform state
+		const newWaveformData = {
+			...waveformData,
+			signal: waveformData.signal.map((item, idx) => {
+				if (Array.isArray(item)) {
+					// Handle group
+					return item.map((subItem, subIdx) => {
+						if (subIdx === 0) return subItem; // Group name
+						const subIndex = getSignalFlatIndex(idx, subIdx - 1);
+						return subIndex === index ? newSignal : subItem;
+					});
+				} else {
+					// Handle signal or spacer
+					const flatIndex = getSignalFlatIndex(idx);
+					return flatIndex === index ? newSignal : item;
 				}
-			} else if (item && typeof item === 'object' && 'name' in item) {
-				// It's a signal
-				if (currentIndex === index) {
-					waveformData.signal[i] = newSignal;
-					return;
-				}
-				currentIndex++;
-			} else {
-				// It's a spacer or unknown
-				currentIndex++;
-			}
-		}
+			})
+		} as WaveJson;
+		
+		// Save state before updating waveform data
+		saveStateToHistory('Update signal');
+		waveformData = newWaveformData;
 	}
 
 	function copySelection() {
@@ -416,6 +511,7 @@
 	}
 
 	function deleteSelection() {
+		saveStateToHistory('Delete selection');
 		applyValueToSelection('');
 	}
 
@@ -424,28 +520,67 @@
 	}
 
 	function invertSelection() {
-		// Invert binary values (0 <-> 1)
-		selectedCells.forEach(cell => {
-			const signal = getSignalAtIndex(cell.signalIndex);
-			if (signal) {
-				let waveChars = signal.wave.split('');
-				if (cell.cycleIndex < waveChars.length) {
-					const currentChar = waveChars[cell.cycleIndex];
-					if (currentChar === '0') {
-						waveChars[cell.cycleIndex] = '1';
-					} else if (currentChar === '1') {
-						waveChars[cell.cycleIndex] = '0';
+		saveStateToHistory('Invert selection');
+		
+		// Create a new waveform state
+		const newWaveformData = {
+			...waveformData,
+			signal: waveformData.signal.map((item, idx) => {
+				if (Array.isArray(item)) {
+					// Handle group
+					return item.map((subItem, subIdx) => {
+						if (subIdx === 0) return subItem; // Group name
+						const subIndex = getSignalFlatIndex(idx, subIdx - 1);
+						if (selectedCells.some(cell => cell.signalIndex === subIndex)) {
+							const signal = subItem as WaveSignal;
+							let waveChars = signal.wave.split('');
+							selectedCells
+								.filter(cell => cell.signalIndex === subIndex)
+								.forEach(cell => {
+									if (cell.cycleIndex < waveChars.length) {
+										const currentChar = waveChars[cell.cycleIndex];
+										if (currentChar === '0') {
+											waveChars[cell.cycleIndex] = '1';
+										} else if (currentChar === '1') {
+											waveChars[cell.cycleIndex] = '0';
+										}
+									}
+								});
+							return { ...signal, wave: waveChars.join('') };
+						}
+						return subItem;
+					});
+				} else if (item && typeof item === 'object' && 'name' in item) {
+					// Handle signal
+					const flatIndex = getSignalFlatIndex(idx);
+					if (selectedCells.some(cell => cell.signalIndex === flatIndex)) {
+						const signal = item as WaveSignal;
+						let waveChars = signal.wave.split('');
+						selectedCells
+							.filter(cell => cell.signalIndex === flatIndex)
+							.forEach(cell => {
+								if (cell.cycleIndex < waveChars.length) {
+									const currentChar = waveChars[cell.cycleIndex];
+									if (currentChar === '0') {
+										waveChars[cell.cycleIndex] = '1';
+									} else if (currentChar === '1') {
+										waveChars[cell.cycleIndex] = '0';
+									}
+								}
+							});
+						return { ...signal, wave: waveChars.join('') };
 					}
-					
-					const newSignal = { ...signal, wave: waveChars.join('') };
-					updateSignalAtIndex(cell.signalIndex, newSignal);
+					return item;
 				}
-			}
-		});
-		waveformData = waveformData; // Trigger reactivity
+				return item;
+			})
+		} as WaveJson;
+		
+		waveformData = newWaveformData;
 	}
 
 	function explicitateSelection() {
+		saveStateToHistory('Explicitate selection');
 		// Convert implicit cells (.) to explicit (hardcoded values)
 		selectedCells.forEach(cell => {
 			const signal = getSignalAtIndex(cell.signalIndex);
@@ -480,6 +615,7 @@
 	}
 
 	function implicitateSelection() {
+		saveStateToHistory('Implicitate selection');
 		// Convert explicit cells to implicit where possible (replace with .)
 		selectedCells.forEach(cell => {
 			const signal = getSignalAtIndex(cell.signalIndex);
@@ -517,16 +653,70 @@
 		// Find and update the signal
 		const signal = getSignalAtIndex(signalIndex);
 		if (signal) {
+			// Create the new signal state first
 			let waveChars = signal.wave.split('');
 			while (waveChars.length <= cycleIndex) {
 				waveChars.push('');
 			}
-			waveChars[cycleIndex] = newChar;
-			
-			const newSignal = { ...signal, wave: waveChars.join('') };
-			updateSignalAtIndex(signalIndex, newSignal);
-			waveformData = waveformData; // Trigger reactivity
+
+			// Only proceed if the value is actually different
+			if (waveChars[cycleIndex] !== newChar) {
+				// Save state before making any changes
+				saveStateToHistory('Change cycle value');
+
+				waveChars[cycleIndex] = newChar;
+				const newSignal = { ...signal, wave: waveChars.join('') };
+				
+				// Create a new waveform state
+				const newWaveformData = {
+					...waveformData,
+					signal: waveformData.signal.map((item, idx) => {
+						if (Array.isArray(item)) {
+							// Handle group
+							return item.map((subItem, subIdx) => {
+								if (subIdx === 0) return subItem; // Group name
+								const subIndex = getSignalFlatIndex(idx, subIdx - 1);
+								return subIndex === signalIndex ? newSignal : subItem;
+							});
+						} else {
+							// Handle signal or spacer
+							const flatIndex = getSignalFlatIndex(idx);
+							return flatIndex === signalIndex ? newSignal : item;
+						}
+					})
+				} as WaveJson;
+
+				// Update the waveform data
+				waveformData = newWaveformData;
+			}
 		}
+	}
+
+	// Helper to get flat index for a signal in nested structure
+	function getSignalFlatIndex(groupIndex: number, subIndex?: number): number {
+		let flatIndex = 0;
+		for (let i = 0; i < groupIndex; i++) {
+			const item = waveformData.signal[i];
+			if (Array.isArray(item)) {
+				// It's a group - count its signals (excluding group name)
+				flatIndex += item.length - 1;
+			} else if (item && typeof item === 'object' && 'name' in item) {
+				// It's a signal
+				flatIndex++;
+			} else {
+				// It's a spacer
+				flatIndex++;
+			}
+		}
+		
+		if (subIndex !== undefined) {
+			// Add subIndex for signals within the current group
+			flatIndex += subIndex;
+		} else if (!Array.isArray(waveformData.signal[groupIndex])) {
+			// For non-group items, no adjustment needed
+		}
+		
+		return flatIndex;
 	}
 
 	function handleTransitionClick(event: CustomEvent<{ signalIndex: number; fromCycleIndex: number; toCycleIndex: number }>) {
@@ -572,15 +762,31 @@
 		// Check for Cmd (Mac) or Ctrl (Windows/Linux)
 		const isCmdOrCtrl = event.metaKey || event.ctrlKey;
 		
-		if (isCmdOrCtrl && selectedCells.length > 0) {
+		if (isCmdOrCtrl) {
 			switch (event.key.toLowerCase()) {
-				case 'e':
+				case 'z':
 					event.preventDefault();
-					explicitateSelection();
+					if (event.shiftKey) {
+						if ($canRedo) handleRedo();
+					} else {
+						if ($canUndo) handleUndo();
+					}
+					break;
+				case 'y':
+					event.preventDefault();
+					if ($canRedo) handleRedo();
+					break;
+				case 'e':
+					if (selectedCells.length > 0) {
+						event.preventDefault();
+						explicitateSelection();
+					}
 					break;
 				case 'i':
-					event.preventDefault();
-					implicitateSelection();
+					if (selectedCells.length > 0) {
+						event.preventDefault();
+						implicitateSelection();
+					}
 					break;
 			}
 		}
@@ -591,9 +797,10 @@
 		waveformData.config = { hscale: 1 };
 	}
 
-	// Initialize command palette
+	// Initialize command palette and history
 	onMount(() => {
 		initializeCommandPalette();
+		history.initialize(waveformData);
 	});
 
 	// Create command context for the command palette
@@ -611,6 +818,121 @@
 		getSignalAtIndex,
 		updateSignalAtIndex
 	};
+
+	// History management
+	// Type guard to validate WaveJson structure
+	function isWaveJson(obj: any): obj is WaveJson {
+		return (
+			obj &&
+			Array.isArray(obj.signal) &&
+			obj.signal.every((item: any) =>
+				// Check if item is a WaveSignal
+				(item && typeof item === 'object' && 'name' in item && 'wave' in item) ||
+				// Check if item is a WaveGroup (array with string as first element)
+				(Array.isArray(item) && typeof item[0] === 'string') ||
+				// Check if item is a WaveSpacer (empty object)
+				(item && typeof item === 'object' && Object.keys(item).length === 0)
+			)
+		);
+	}
+
+	function handleUndo() {
+		history.undo();
+	}
+
+	function handleRedo() {
+		history.redo();
+	}
+
+	function handleContextMenu(event: CustomEvent<{ signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean }>) {
+		const { signalIndex, cycleIndex, x, y, currentValue, isImplicit, isExplicit } = event.detail;
+		
+		// Get signal name
+		const signal = getSignalAtIndex(signalIndex);
+		if (!signal) return;
+		
+		contextMenuVisible = true;
+		contextMenuX = x;
+		contextMenuY = y;
+		contextMenuSignalName = signal.name;
+		contextMenuSignalIndex = signalIndex;
+		contextMenuCycleIndex = cycleIndex;
+		contextMenuCurrentValue = currentValue;
+		contextMenuIsImplicit = isImplicit;
+		contextMenuIsExplicit = isExplicit;
+	}
+
+	function handleContextMenuClose() {
+		contextMenuVisible = false;
+	}
+
+	function handleContextMenuAction(event: CustomEvent) {
+		const action = event.type;
+		const value = 'value' in event.detail ? event.detail.value : null;
+		
+		if (action === 'setvalue' && value) {
+			handleCycleChange({
+				detail: {
+					signalIndex: contextMenuSignalIndex,
+					cycleIndex: contextMenuCycleIndex,
+					newChar: value
+				}
+			} as CustomEvent);
+		} else if (action === 'explicitate') {
+			// Handle explicitate action
+			const signal = getSignalAtIndex(contextMenuSignalIndex);
+			if (signal) {
+				let waveChars = signal.wave.split('');
+				if (waveChars[contextMenuCycleIndex] === '.') {
+					// Find the effective character for this specific cell
+					let effectivePrevChar: string | null = null;
+					
+					// Look backwards to find the last non-dot character
+					for (let i = contextMenuCycleIndex - 1; i >= 0; i--) {
+						if (waveChars[i] !== '.') {
+							effectivePrevChar = waveChars[i];
+							break;
+						}
+					}
+					
+					if (effectivePrevChar) {
+						handleCycleChange({
+							detail: {
+								signalIndex: contextMenuSignalIndex,
+								cycleIndex: contextMenuCycleIndex,
+								newChar: effectivePrevChar
+							}
+						} as CustomEvent);
+					}
+				}
+			}
+		} else if (action === 'implicitate') {
+			// Handle implicitate action
+			const signal = getSignalAtIndex(contextMenuSignalIndex);
+			if (signal) {
+				let waveChars = signal.wave.split('');
+				if (contextMenuCycleIndex > 0 && waveChars[contextMenuCycleIndex] !== '.') {
+					const currentChar = waveChars[contextMenuCycleIndex];
+					
+					// Skip empty characters
+					if (currentChar !== '') {
+						// Special handling for data signals - don't collapse data values
+						if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
+							handleCycleChange({
+								detail: {
+									signalIndex: contextMenuSignalIndex,
+									cycleIndex: contextMenuCycleIndex,
+									newChar: '.'
+								}
+							} as CustomEvent);
+						}
+					}
+				}
+			}
+		}
+		
+		handleContextMenuClose();
+	}
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
@@ -639,6 +961,8 @@
 				on:clear={handleClear}
 				on:export={handleExport}
 				on:import={handleImport}
+				on:undo={handleUndo}
+				on:redo={handleRedo}
 			/>
 		</aside>
 
@@ -646,28 +970,37 @@
 		<div class="app-content">
 			<div 
 				class="waveform-container" 
-				role="region"
+				role="button"
 				aria-label="Waveform editing area - click to clear selection, press Escape to clear selection"
 				tabindex="0"
 				on:click={handleBackgroundClick}
 				on:keydown={(e) => { if (e.key === 'Escape') clearSelection(); }}
 			>
-				<WaveformDiagram 
-					waveJson={waveformData} 
+				<WaveformDiagram
+					waveJson={waveformData}
+					isCellSelected={isCellSelected}
 					on:signalchange={handleSignalChange}
 					on:structurechange={handleStructureChange}
 					on:cellselection={handleCellSelection}
 					on:laneselection={handleLaneSelection}
 					on:groupselection={handleGroupSelection}
 					on:cyclechange={handleCycleChange}
-					on:transitionclick={handleTransitionClick}
-					{isCellSelected}
+					on:rightclick={(e) => {
+						contextMenuVisible = true;
+						contextMenuX = e.detail.x;
+						contextMenuY = e.detail.y;
+						const signal = getSignalAtIndex(e.detail.signalIndex);
+						contextMenuSignalName = signal?.name || '';
+						contextMenuSignalIndex = e.detail.signalIndex;
+						contextMenuCycleIndex = e.detail.cycleIndex;
+						contextMenuCurrentValue = e.detail.currentValue;
+						contextMenuIsImplicit = e.detail.isImplicit;
+						contextMenuIsExplicit = e.detail.isExplicit;
+					}}
 				/>
 			</div>
 		</div>
 	</main>
-
-
 
 	<!-- Selection Popup -->
 	<SelectionPopup
@@ -693,6 +1026,91 @@
 
 	<!-- Command Palette -->
 	<CommandPalette context={commandContext} />
+
+	<!-- Cycle Context Menu -->
+	<CycleContextMenu
+		visible={contextMenuVisible}
+		x={contextMenuX}
+		y={contextMenuY}
+		signalName={contextMenuSignalName}
+		cycleIndex={contextMenuCycleIndex}
+		currentValue={contextMenuCurrentValue}
+		isImplicit={contextMenuIsImplicit}
+		isExplicit={contextMenuIsExplicit}
+		on:setvalue={(event) => {
+			const { value } = event.detail;
+			handleCycleChange({
+				detail: {
+					signalIndex: contextMenuSignalIndex,
+					cycleIndex: contextMenuCycleIndex,
+					newChar: value
+				}
+			} as CustomEvent);
+			contextMenuVisible = false;
+		}}
+		on:explicitate={() => {
+			// Handle explicitate action
+			const signal = getSignalAtIndex(contextMenuSignalIndex);
+			if (signal) {
+				let waveChars = signal.wave.split('');
+				if (waveChars[contextMenuCycleIndex] === '.') {
+					// Find the effective character for this specific cell
+					let effectivePrevChar: string | null = null;
+					
+					// Look backwards to find the last non-dot character
+					for (let i = contextMenuCycleIndex - 1; i >= 0; i--) {
+						if (waveChars[i] !== '.') {
+							effectivePrevChar = waveChars[i];
+							break;
+						}
+					}
+					
+					if (effectivePrevChar) {
+						// Save state before making changes
+						saveStateToHistory('Explicitate cycle');
+						handleCycleChange({
+							detail: {
+								signalIndex: contextMenuSignalIndex,
+								cycleIndex: contextMenuCycleIndex,
+								newChar: effectivePrevChar
+							}
+						} as CustomEvent);
+					}
+				}
+			}
+			contextMenuVisible = false;
+		}}
+		on:implicitate={() => {
+			// Handle implicitate action
+			const signal = getSignalAtIndex(contextMenuSignalIndex);
+			if (signal) {
+				let waveChars = signal.wave.split('');
+				if (contextMenuCycleIndex > 0 && waveChars[contextMenuCycleIndex] !== '.') {
+					const currentChar = waveChars[contextMenuCycleIndex];
+					
+					// Skip empty characters
+					if (currentChar !== '') {
+						// Special handling for data signals - don't collapse data values
+						if (!['=', '2', '3', '4', '5'].includes(currentChar)) {
+							// Save state before making changes
+							saveStateToHistory('Implicitate cycle');
+							handleCycleChange({
+								detail: {
+									signalIndex: contextMenuSignalIndex,
+									cycleIndex: contextMenuCycleIndex,
+									newChar: '.'
+								}
+							} as CustomEvent);
+						}
+					}
+				}
+			}
+			contextMenuVisible = false;
+		}}
+		on:close={() => {
+			contextMenuVisible = false;
+		}}
+	/>
 </div>
 
 <style>

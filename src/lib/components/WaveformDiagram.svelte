@@ -19,6 +19,7 @@
     groupselection: { groupName: string; signalIndices: number[]; shiftKey: boolean };
     cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
     transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
+    rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
   }>();
 
   // Context menu state
@@ -149,75 +150,38 @@
     function handleSignalChange(event: CustomEvent<{ signalIndex: number; newSignal: WaveSignal }>) {
       const { signalIndex, newSignal } = event.detail;
       
-      // Update the signal in our waveJson
+      // Only dispatch the event, don't modify state directly
       if (waveJson.signal[signalIndex] && getItemType(waveJson.signal[signalIndex]) === 'signal') {
-        waveJson.signal[signalIndex] = newSignal;
         dispatch('signalchange', event.detail);
       }
     }
   
     function handleStructureChange(event: CustomEvent<{ newWaveJson: WaveJson }>) {
-      waveJson = event.detail.newWaveJson;
+      // Only dispatch the event, don't modify state directly
       dispatch('structurechange', event.detail);
     }
 
     function handleGroupChange(event: CustomEvent<{ groupIndex: number; newGroup: WaveGroup }>) {
       const { groupIndex, newGroup } = event.detail;
       
-      // Update the group in our waveJson
+      // Only dispatch the event, don't modify state directly
       if (waveJson.signal[groupIndex] && Array.isArray(waveJson.signal[groupIndex])) {
-        // Create a new signal array to trigger reactivity
-        const newSignals = [...waveJson.signal];
-        newSignals[groupIndex] = newGroup;
-        
-        // Create a new waveJson object
-        waveJson = {
-          ...waveJson,
-          signal: newSignals
-        };
-        
-        dispatch('structurechange', { newWaveJson: waveJson });
+        dispatch('structurechange', { 
+          newWaveJson: {
+            ...waveJson,
+            signal: waveJson.signal.map((item, idx) => 
+              idx === groupIndex ? newGroup : item
+            ) as SignalItem[]
+          }
+        });
       }
     }
 
     function handleRightClick(event: CustomEvent<{ signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean }>) {
       const { signalIndex, cycleIndex, x, y, currentValue, isImplicit, isExplicit } = event.detail;
       
-      // Find the signal name
-      let signalName = '';
-      let currentIndex = 0;
-      
-      function findSignalName(items: SignalItem[]): string | null {
-        for (const item of items) {
-          if (Array.isArray(item)) {
-            // It's a group
-            const result = findSignalName(item.slice(1) as SignalItem[]);
-            if (result) return result;
-          } else if (item && typeof item === 'object' && 'name' in item) {
-            // It's a signal
-            if (currentIndex === signalIndex) {
-              return (item as WaveSignal).name;
-            }
-            currentIndex++;
-          } else {
-            // Spacer or unknown
-            currentIndex++;
-          }
-        }
-        return null;
-      }
-      
-      signalName = findSignalName(waveJson.signal) || `Signal ${signalIndex}`;
-      
-      contextMenuSignalName = signalName;
-      contextMenuSignalIndex = signalIndex;
-      contextMenuCycleIndex = cycleIndex;
-      contextMenuCurrentValue = currentValue;
-      contextMenuIsImplicit = isImplicit;
-      contextMenuIsExplicit = isExplicit;
-      contextMenuX = x;
-      contextMenuY = y;
-      contextMenuVisible = true;
+      // Forward the event to the parent
+      dispatch('rightclick', event.detail);
     }
 
     function handleContextMenuSetValue(event: CustomEvent<{ value: string }>) {
@@ -326,31 +290,59 @@
     }
 
     function updateSignalAtIndex(signalIndex: number, newSignal: WaveSignal) {
-      let currentIndex = 0;
-      for (let i = 0; i < waveJson.signal.length; i++) {
-        const item = waveJson.signal[i];
-        if (Array.isArray(item)) {
-          // It's a group - iterate through its signals
-          for (let j = 1; j < item.length; j++) {
-            const subItem = item[j];
-            if (currentIndex === signalIndex && subItem && typeof subItem === 'object' && !Array.isArray(subItem) && 'name' in subItem) {
-              item[j] = newSignal;
-              return;
+        // Create a new signal array with updated signal
+        const newSignals = waveJson.signal.map((item, i) => {
+            if (Array.isArray(item)) {
+                // It's a group - create a new array with updated signal
+                return [
+                    item[0],
+                    ...item.slice(1).map((subItem, j) => {
+                        const subIndex = getSignalFlatIndex(i, j);
+                        return subIndex === signalIndex ? newSignal : subItem;
+                    })
+                ] as WaveGroup;
+            } else {
+                // It's a signal or spacer
+                const flatIndex = getSignalFlatIndex(i);
+                return flatIndex === signalIndex ? newSignal : item;
             }
-            currentIndex++;
-          }
-        } else if (item && typeof item === 'object' && 'name' in item) {
-          // It's a signal
-          if (currentIndex === signalIndex) {
-            waveJson.signal[i] = newSignal;
-            return;
-          }
-          currentIndex++;
-        } else {
-          // It's a spacer or unknown
-          currentIndex++;
+        }) as SignalItem[];
+
+        // Create a new waveJson object
+        waveJson = {
+            ...waveJson,
+            signal: newSignals
+        };
+
+        // Notify parent of structure change
+        dispatch('structurechange', { newWaveJson: waveJson });
+    }
+
+    // Helper to get flat index for a signal in nested structure
+    function getSignalFlatIndex(groupIndex: number, subIndex?: number): number {
+        let flatIndex = 0;
+        for (let i = 0; i < groupIndex; i++) {
+            const item = waveJson.signal[i];
+            if (Array.isArray(item)) {
+                // It's a group - count its signals (excluding group name)
+                flatIndex += item.length - 1;
+            } else if (item && typeof item === 'object' && 'name' in item) {
+                // It's a signal
+                flatIndex++;
+            } else {
+                // It's a spacer
+                flatIndex++;
+            }
         }
-      }
+        
+        if (subIndex !== undefined) {
+            // Add subIndex for signals within the current group
+            flatIndex += subIndex;
+        } else if (!Array.isArray(waveJson.signal[groupIndex])) {
+            // For non-group items, no adjustment needed
+        }
+        
+        return flatIndex;
     }
 
     // Resize handlers
@@ -622,8 +614,9 @@
       else if (event.shiftKey) {
         event.preventDefault();
         
-        // Convert vertical scroll to horizontal scroll
-        const scrollAmount = event.deltaY;
+        // On macOS with Shift+scroll, deltaY becomes 0 and deltaX contains the scroll value
+        // On other platforms, deltaY contains the scroll value that we convert to horizontal
+        const scrollAmount = event.deltaX !== 0 ? event.deltaX : event.deltaY;
         const target = event.currentTarget as HTMLElement;
         
         // Find the scrollable container (the diagram content or its parent)
@@ -639,11 +632,15 @@
         }
         
         // Apply horizontal scroll
-        if (scrollContainer) {
+        if (scrollContainer && scrollAmount !== 0) {
           scrollContainer.scrollLeft += scrollAmount;
         }
       }
       // If no modifier key, allow normal vertical scrolling
+    }
+
+    function handleCycleChange(event: CustomEvent<{ signalIndex: number; cycleIndex: number; newChar: string }>) {
+      dispatch('cyclechange', event.detail);
     }
   
     // Note: SVG export functionality can be added here if needed in the future
@@ -702,6 +699,7 @@
               on:signalreorder={(e) => handleSignalReorder(e)}
               on:dragstart={(e) => handleDragStart(e.detail.event, e.detail.path, e.detail.itemType)}
               on:drop={(e) => handleDrop(e.detail.event, e.detail.targetPath, e.detail.position)}
+              on:cyclechange={(e) => handleCycleChange(e)}
             />
           {:else if itemType === 'group'}
             <SignalGroup
@@ -726,6 +724,7 @@
               on:movetogroup={(e) => handleMoveToGroup(e)}
               on:dragstart={(e) => handleDragStart(e.detail.event, e.detail.path, e.detail.itemType)}
               on:drop={(e) => handleDrop(e.detail.event, e.detail.targetPath, e.detail.position)}
+              on:cyclechange={(e) => handleCycleChange(e)}
             />
           {:else if itemType === 'spacer'}
             <div class="signal-spacer" 
