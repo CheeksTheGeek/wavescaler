@@ -548,7 +548,6 @@
           bind:value={nameInput}
           on:blur={finishEditingName}
           on:keydown={handleNameKeydown}
-          autofocus
         />
       {:else}
         <div class="signal-name-display">
@@ -627,7 +626,6 @@
               value={span.text}
               on:blur={(e) => finishEditingSpan(index, (e.target as HTMLInputElement).value)}
               on:keydown={(e) => handleSpanKeydown(e, index)}
-              autofocus
             />
           {:else}
             <button 

@@ -6,7 +6,7 @@
 	import SelectionToolbar from '$lib/components/SelectionToolbar.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import CycleContextMenu from '$lib/components/CycleContextMenu.svelte';
-	import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
+	import type { WaveJson, WaveSignal, WaveGroup, SignalItem } from '$lib/wavejson-types';
 	import { clearLaneSelection, selectedLanes } from '$lib/lane-selection-store';
 	import { initializeCommandPalette, commandPaletteStore } from '$lib/command-palette';
 	import type { CommandContext } from '$lib/command-palette/types';
@@ -287,30 +287,30 @@
 	}
 
 	function getSignalAtIndex(index: number): WaveSignal | null {
-		// Helper to get signal from potentially nested structure
+		// Helper to get signal from potentially nested structure - matches WaveformDiagram.createSignalIndexMap logic
 		let currentIndex = 0;
-		for (const item of waveformData.signal) {
-			if (Array.isArray(item)) {
-				// It's a group - iterate through its signals
-				for (let i = 1; i < item.length; i++) {
-					const subItem = item[i];
-					if (currentIndex === index && subItem && typeof subItem === 'object' && !Array.isArray(subItem) && 'name' in subItem) {
-						return subItem as WaveSignal;
+		
+		function processItems(itemList: SignalItem[]): WaveSignal | null {
+			for (const item of itemList) {
+				if (Array.isArray(item)) {
+					// It's a group - process its children recursively
+					const result = processItems(item.slice(1) as SignalItem[]);
+					if (result) return result;
+				} else if (item && typeof item === 'object' && 'name' in item) {
+					// It's a signal
+					if (currentIndex === index) {
+						return item as WaveSignal;
 					}
 					currentIndex++;
+				} else {
+					// It's a spacer or unknown - still counts for indexing
+					currentIndex++;
 				}
-			} else if (item && typeof item === 'object' && 'name' in item) {
-				// It's a signal
-				if (currentIndex === index) {
-					return item as WaveSignal;
-				}
-				currentIndex++;
-			} else {
-				// It's a spacer or unknown
-				currentIndex++;
 			}
+			return null;
 		}
-		return null;
+		
+		return processItems(waveformData.signal);
 	}
 
 	function getSelectionRange(start: CellSelection, end: CellSelection): CellSelection[] {
@@ -418,59 +418,66 @@
 	}
 
 	function applyValueToSelection(value: string) {
-		// Create a new waveform state first
-		const newWaveformData = {
-			...waveformData,
-			signal: waveformData.signal.map((item, idx) => {
-				if (Array.isArray(item)) {
-					// Handle group
-					return item.map((subItem, subIdx) => {
-						if (subIdx === 0) return subItem; // Group name
-						const subIndex = getSignalFlatIndex(idx, subIdx - 1);
-						if (selectedCells.some(cell => cell.signalIndex === subIndex)) {
-							const signal = subItem as WaveSignal;
-							let waveChars = signal.wave.split('');
-							selectedCells
-								.filter(cell => cell.signalIndex === subIndex)
-								.forEach(cell => {
-									while (waveChars.length <= cell.cycleIndex) {
-										waveChars.push('');
-									}
-									waveChars[cell.cycleIndex] = value;
-								});
-							return { ...signal, wave: waveChars.join('') };
-						}
-						return subItem;
-					});
-				} else {
-					// Handle signal or spacer
-					const flatIndex = getSignalFlatIndex(idx);
-					if (selectedCells.some(cell => cell.signalIndex === flatIndex)) {
-						const signal = item as WaveSignal;
-						let waveChars = signal.wave.split('');
-						selectedCells
-							.filter(cell => cell.signalIndex === flatIndex)
-							.forEach(cell => {
-								while (waveChars.length <= cell.cycleIndex) {
-									waveChars.push('');
-								}
-								waveChars[cell.cycleIndex] = value;
-							});
-						return { ...signal, wave: waveChars.join('') };
-					}
-					return item;
+		// Save state before making changes
+		saveStateToHistory('Apply value to selection');
+		
+		// Create a new waveform state by applying the value to each selected cell
+		let newWaveformData = { ...waveformData };
+		
+		selectedCells.forEach(cell => {
+			const signal = getSignalAtIndex(cell.signalIndex);
+			if (signal) {
+				let waveChars = signal.wave.split('');
+				
+				// Extend wave if necessary
+				while (waveChars.length <= cell.cycleIndex) {
+					waveChars.push('');
 				}
-			})
-		} as WaveJson;
-
+				
+				// Set the value
+				waveChars[cell.cycleIndex] = value;
+				
+				// Create the new signal
+				const newSignal = { ...signal, wave: waveChars.join('') };
+				
+				// Update the waveform data structure recursively
+				newWaveformData = updateSignalInWaveformData(newWaveformData, cell.signalIndex, newSignal);
+			}
+		});
+		
 		// Update the waveform data
 		waveformData = newWaveformData;
+	}
 
-		// Wait for the next tick to ensure the store sees the updated state
-		setTimeout(() => {
-			// Save state after updating waveform data and waiting for reactivity
-			saveStateToHistory('Apply value to selection');
-		}, 0);
+	// Helper function to update a signal in the waveform data structure
+	function updateSignalInWaveformData(waveformData: WaveJson, signalIndex: number, newSignal: WaveSignal): WaveJson {
+		let currentIndex = 0;
+		
+		function processItems(itemList: SignalItem[]): SignalItem[] {
+			return itemList.map(item => {
+				if (Array.isArray(item)) {
+					// It's a group - process its children recursively
+					return [item[0], ...processItems(item.slice(1) as SignalItem[])] as WaveGroup;
+				} else if (item && typeof item === 'object' && 'name' in item) {
+					// It's a signal
+					if (currentIndex === signalIndex) {
+						currentIndex++;
+						return newSignal;
+					}
+					currentIndex++;
+					return item;
+				} else {
+					// It's a spacer or unknown - still counts for indexing
+					currentIndex++;
+					return item;
+				}
+			});
+		}
+		
+		return {
+			...waveformData,
+			signal: processItems(waveformData.signal)
+		};
 	}
 
 	function updateSignalAtIndex(index: number, newSignal: WaveSignal) {
