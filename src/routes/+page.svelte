@@ -6,6 +6,7 @@
 	import SelectionToolbar from '$lib/components/SelectionToolbar.svelte';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
 	import CycleContextMenu from '$lib/components/CycleContextMenu.svelte';
+	import MonacoWaveJsonEditor from '$lib/components/MonacoWaveJsonEditor.svelte';
 	import type { WaveJson, WaveSignal, WaveGroup, SignalItem } from '$lib/wavejson-types';
 	import { clearLaneSelection, selectedLanes } from '$lib/lane-selection-store';
 	import { initializeCommandPalette, commandPaletteStore } from '$lib/command-palette';
@@ -72,6 +73,9 @@
 	let contextMenuCurrentValue = '';
 	let contextMenuIsImplicit = false;
 	let contextMenuIsExplicit = false;
+
+	// Monaco editor state
+	let editorVisible = false;
 
 	function handleAddSignal(event: CustomEvent<{ signal: WaveSignal }>) {
 		saveStateToHistory('Add signal');
@@ -900,6 +904,20 @@
 		history.redo();
 	}
 
+	function handleToggleEditor(event: CustomEvent<{ visible: boolean }>) {
+		editorVisible = event.detail.visible;
+	}
+
+	function handleEditorChange(event: CustomEvent<{ waveJson: WaveJson }>) {
+		saveStateToHistory('Edit WaveJSON in editor');
+		waveformData = event.detail.waveJson;
+	}
+
+	function handleEditorError(event: CustomEvent<{ message: string }>) {
+		// Editor will show the error inline, we could also show a toast here if needed
+		console.warn('WaveJSON editor error:', event.detail.message);
+	}
+
 	function handleContextMenu(event: CustomEvent<{ signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean }>) {
 		const { signalIndex, cycleIndex, x, y, currentValue, isImplicit, isExplicit } = event.detail;
 		
@@ -1019,6 +1037,7 @@
 				on:import={handleImport}
 				on:undo={handleUndo}
 				on:redo={handleRedo}
+				on:toggleeditor={handleToggleEditor}
 			/>
 		</aside>
 
@@ -1055,6 +1074,14 @@
 					}}
 				/>
 			</div>
+
+			<!-- Monaco Editor Panel -->
+			<MonacoWaveJsonEditor
+				waveJson={waveformData}
+				visible={editorVisible}
+				on:change={handleEditorChange}
+				on:error={handleEditorError}
+			/>
 		</div>
 	</main>
 
@@ -1236,13 +1263,14 @@
 	.app-content {
 		flex: 1;
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		overflow: hidden;
 	}
 
 	.waveform-container {
 		flex: 1;
 		margin: 1rem;
+		margin-right: 0.5rem;
 		background: var(--color-bg-elevated);
 		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-md);
@@ -1252,6 +1280,7 @@
 		flex-direction: column;
 		outline: none;
 		transition: all 0.2s ease;
+		min-width: 0;
 	}
 
 	.waveform-container:focus {
@@ -1295,8 +1324,13 @@
 			border-bottom: 1px solid var(--color-border-primary);
 		}
 
+		.app-content {
+			flex-direction: column;
+		}
+
 		.waveform-container {
 			margin: 0.5rem;
+			margin-right: 0.5rem;
 		}
 
 		.app-header {

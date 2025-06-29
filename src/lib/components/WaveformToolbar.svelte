@@ -20,12 +20,14 @@
     import: { waveJson: WaveJson };
     undo: {};
     redo: {};
+    toggleeditor: { visible: boolean };
   }>();
 
   let fileInput: HTMLInputElement;
   let showTextImport = false;
   let importText = '';
   let showExportDropdown = false;
+  let editorVisible = false;
 
   // Generate better signal names
   function generateSignalName(): string {
@@ -173,6 +175,11 @@
     }
   }
 
+  function toggleEditor() {
+    editorVisible = !editorVisible;
+    dispatch('toggleeditor', { visible: editorVisible });
+  }
+
 </script>
 
 <svelte:window on:click={handleClickOutside} />
@@ -239,6 +246,14 @@
         <path d="M6 6 L10 6 M6 8 L10 8 M6 10 L8 10" stroke="currentColor" stroke-width="1.5"/>
       </svg>
       Import WaveJSON Text
+    </button>
+    <button class="toolbar-button secondary" class:active={editorVisible} on:click={toggleEditor}>
+      <svg width="16" height="16" viewBox="0 0 16 16">
+        <rect x="2" y="2" width="12" height="12" stroke="currentColor" stroke-width="1.5" fill="none" rx="2"/>
+        <path d="M5 5 L11 5 M5 8 L9 8 M5 11 L7 11" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M12 9 L12 12 M10.5 10.5 L13.5 10.5" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      {editorVisible ? 'Hide' : 'Show'} Editor
     </button>
     <div class="export-dropdown">
       <button 
@@ -413,6 +428,12 @@
   .toolbar-button.secondary:hover {
     background-color: var(--color-text-secondary);
     border-color: var(--color-text-secondary);
+  }
+
+  .toolbar-button.active {
+    background-color: var(--color-accent-primary);
+    color: var(--color-text-inverse);
+    border-color: var(--color-accent-primary);
   }
 
   .toolbar-button.danger {
