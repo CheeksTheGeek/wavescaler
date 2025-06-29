@@ -105,7 +105,7 @@
 		};
 	}
 
-	function handleExport(event: CustomEvent<{ format: 'json' | 'svg' | 'png' }>) {
+	function handleExport(event: CustomEvent<{ format: 'json' | 'svg' | 'png' | 'jpeg' }>) {
 		const { format } = event.detail;
 		
 		if (format === 'json') {
@@ -117,8 +117,57 @@
 			link.download = 'waveform.json';
 			link.click();
 			URL.revokeObjectURL(url);
+		} else {
+			// For image formats, we need to capture the waveform diagram
+			const waveformElement = document.querySelector('.waveform-container') as HTMLElement;
+			if (!waveformElement) return;
+
+			// Use html-to-image library for high-quality image export
+			import('html-to-image').then(async (htmlToImage) => {
+				try {
+					let imageData: string;
+					const options = {
+						backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--surface-1'),
+						style: {
+							// Ensure scrollbars are hidden during capture
+							overflow: 'hidden',
+							// Add some padding
+							padding: '20px'
+						}
+					};
+
+					switch (format) {
+						case 'svg':
+							imageData = await htmlToImage.toSvg(waveformElement, options);
+							downloadFile(imageData, 'waveform.svg', 'image/svg+xml');
+							break;
+						case 'png':
+							imageData = await htmlToImage.toPng(waveformElement, options);
+							downloadFile(imageData, 'waveform.png', 'image/png');
+							break;
+						case 'jpeg':
+							imageData = await htmlToImage.toJpeg(waveformElement, {
+								...options,
+								quality: 0.95
+							});
+							downloadFile(imageData, 'waveform.jpg', 'image/jpeg');
+							break;
+					}
+				} catch (error) {
+					console.error('Error exporting image:', error);
+					alert('Failed to export image. Please try again.');
+				}
+			});
 		}
-		// TODO: Implement SVG and PNG export
+	}
+
+	function downloadFile(data: string, filename: string, mimeType: string) {
+		const link = document.createElement('a');
+		link.href = data;
+		link.download = filename;
+		document.body.appendChild(link);
+		link.click();
+		document.body.removeChild(link);
 	}
 
 	function handleImport(event: CustomEvent<{ waveJson: WaveJson }>) {

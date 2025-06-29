@@ -30,6 +30,15 @@
   let dragDelta = 0;
   let currentMouseX = 0;
   let dragRailContainer: HTMLElement;
+  
+  // Global drag tracking key based on transition position
+  const dragKey = `transition_${fromCycle.cycleIndex}_${toCycle.cycleIndex}`;
+  
+  // Check if this specific transition is being dragged globally
+  $: isGloballyDragging = typeof window !== 'undefined' && (window as any).transitionDragActive === dragKey;
+  
+  // Show drag rail if locally dragging OR if this transition is globally being dragged
+  $: showDragRail = isDragging || isGloballyDragging;
 
   // Use the same positioning logic as SignalCycle to ensure perfect alignment
   $: fullCycleWidth = 40 * hscale;
@@ -253,6 +262,11 @@
     dragMode = event.metaKey || event.ctrlKey ? 'extend' : 'default';
     dragDelta = 0;
 
+    // Mark this transition as being dragged globally
+    if (typeof window !== 'undefined') {
+      (window as any).transitionDragActive = dragKey;
+    }
+
     // Add global mouse event listeners
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
@@ -261,7 +275,8 @@
   }
 
   function handleMouseMove(event: MouseEvent) {
-    if (!isDragging) return;
+    // Check if dragging locally or if this transition is globally being dragged
+    if (!isDragging && !isGloballyDragging) return;
     
     currentMouseX = event.clientX;
     const rawDelta = currentMouseX - dragStartX;
@@ -270,27 +285,37 @@
     const nearestSnap = findNearestSnapPosition(rawDelta);
     const snappedDelta = nearestSnap.cycleOffset;
     
-    // Only dispatch if we've moved to a different snap position
+    // Update drag delta for visual feedback, but don't dispatch changes yet
     if (snappedDelta !== dragDelta) {
       dragDelta = snappedDelta;
-      
-      // Only dispatch valid moves
-      if (nearestSnap.isValid && Math.abs(snappedDelta) >= 1) {
-        dispatch('transitiondrag', {
-          fromCycleIndex: fromCycle.cycleIndex,
-          toCycleIndex: toCycle.cycleIndex,
-          deltaX: snappedDelta,
-          dragMode
-        });
-      }
+      // Note: No dispatch here - we only show preview in the rail
     }
   }
 
   function handleMouseUp(event: MouseEvent) {
+    // Apply the drag change only on drop if there was a valid movement
+    const finalDelta = dragDelta;
+    const finalNearestSnap = findNearestSnapPosition(currentMouseX - dragStartX);
+    
+    if (finalNearestSnap.isValid && Math.abs(finalDelta) >= 1) {
+      dispatch('transitiondrag', {
+        fromCycleIndex: fromCycle.cycleIndex,
+        toCycleIndex: toCycle.cycleIndex,
+        deltaX: finalDelta,
+        dragMode
+      });
+    }
+    
+    // Reset drag state
     isDragging = false;
     isHovering = false;
     dragDelta = 0;
     currentMouseX = 0;
+    
+    // Clear global drag state
+    if (typeof window !== 'undefined') {
+      delete (window as any).transitionDragActive;
+    }
     
     // Remove global mouse event listeners
     document.removeEventListener('mousemove', handleMouseMove);
@@ -406,7 +431,7 @@
     <div class="drag-handle" style="top: var(--drag-handle-y);"></div>
     
     <!-- Drag rail (only visible during dragging) -->
-    {#if isDragging}
+    {#if showDragRail}
       <div 
         class="drag-rail" 
         style="
@@ -452,9 +477,14 @@
         <div class="mode-indicator">
           <span class="mode-label">{dragMode === 'extend' ? 'EXTEND' : 'DEFAULT'}</span>
           {#if dragMode === 'extend'}
-            <span class="mode-hint">→ Push forward</span>
+            <span class="mode-hint">→ Release to push forward</span>
           {:else}
-            <span class="mode-hint">↔ Take over</span>
+            <span class="mode-hint">↔ Release to take over</span>
+          {/if}
+          {#if nearestSnapPosition && Math.abs(nearestSnapPosition.cycleOffset) >= 1}
+            <span class="drop-preview">Drop to move {nearestSnapPosition.cycleOffset > 0 ? '+' : ''}{nearestSnapPosition.cycleOffset} cycles</span>
+          {:else}
+            <span class="drop-preview">Drag to cycle boundaries</span>
           {/if}
         </div>
       </div>
@@ -660,6 +690,17 @@
     color: var(--color-text-secondary);
     text-align: center;
     margin-top: 1px;
+  }
+
+  .drop-preview {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-accent-primary);
+    text-align: center;
+    margin-top: 2px;
+    border-top: 1px solid var(--color-border-secondary);
+    padding-top: 2px;
   }
 
   /* Transition lines with calculated positioning */

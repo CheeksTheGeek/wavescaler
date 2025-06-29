@@ -16,7 +16,7 @@
     addgroup: { group: WaveGroup };
     addspacer: {};
     clear: {};
-    export: { format: 'json' | 'svg' | 'png' };
+    export: { format: 'json' | 'svg' | 'png' | 'jpeg' };
     import: { waveJson: WaveJson };
     undo: {};
     redo: {};
@@ -25,6 +25,7 @@
   let fileInput: HTMLInputElement;
   let showTextImport = false;
   let importText = '';
+  let showExportDropdown = false;
 
   // Generate better signal names
   function generateSignalName(): string {
@@ -95,8 +96,16 @@
     }
   }
 
-  function exportDiagram(format: 'json' | 'svg' | 'png') {
+  function handleExport(format: 'json' | 'svg' | 'png' | 'jpeg') {
     dispatch('export', { format });
+    showExportDropdown = false;
+  }
+
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.export-dropdown')) {
+      showExportDropdown = false;
+    }
   }
 
   function importDiagram() {
@@ -166,6 +175,8 @@
 
 </script>
 
+<svelte:window on:click={handleClickOutside} />
+
 <div class="waveform-toolbar">
   <div class="toolbar-section">
     <h3>History</h3>
@@ -229,13 +240,52 @@
       </svg>
       Import WaveJSON Text
     </button>
-    <button class="toolbar-button secondary" on:click={() => exportDiagram('json')}>
-      <svg width="16" height="16" viewBox="0 0 16 16">
-        <path d="M8 2 L8 10 M5 5 L8 2 L11 5" stroke="currentColor" stroke-width="1.5" fill="none"/>
-        <path d="M3 12 L13 12" stroke="currentColor" stroke-width="1.5"/>
-      </svg>
-      Export WaveJSON
-    </button>
+    <div class="export-dropdown">
+      <button 
+        class="toolbar-button secondary" 
+        on:click|stopPropagation={() => showExportDropdown = !showExportDropdown}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <path d="M8 2 L8 10 M5 5 L8 2 L11 5" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <path d="M3 12 L13 12" stroke="currentColor" stroke-width="1.5"/>
+        </svg>
+        Export As
+        <svg class="caret" width="10" height="10" viewBox="0 0 10 10">
+          <path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        </svg>
+      </button>
+      {#if showExportDropdown}
+        <div class="dropdown-menu" on:click|stopPropagation>
+          <button class="dropdown-item" on:click={() => handleExport('json')}>
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <path d="M3 3h10v2H3zM3 7h7v2H3zM3 11h5v2H3z" stroke="none" fill="currentColor"/>
+            </svg>
+            WaveJSON
+          </button>
+          <button class="dropdown-item" on:click={() => handleExport('svg')}>
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <path d="M14 4v8H2V4h12m1-1H1v10h14V3z" stroke="none" fill="currentColor"/>
+              <path d="M4 8h8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            </svg>
+            SVG
+          </button>
+          <button class="dropdown-item" on:click={() => handleExport('png')}>
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <path d="M14 4v8H2V4h12m1-1H1v10h14V3z" stroke="none" fill="currentColor"/>
+              <path d="M4 6h8M4 8h8M4 10h8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            </svg>
+            PNG
+          </button>
+          <button class="dropdown-item" on:click={() => handleExport('jpeg')}>
+            <svg width="16" height="16" viewBox="0 0 16 16">
+              <path d="M14 4v8H2V4h12m1-1H1v10h14V3z" stroke="none" fill="currentColor"/>
+              <path d="M4 6l8 0M4 8l8 0M4 10l8 0" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            </svg>
+            JPEG
+          </button>
+        </div>
+      {/if}
+    </div>
   </div>
 
   {#if showTextImport}
@@ -466,5 +516,121 @@
   .toolbar-button.compact:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .export-dropdown {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Export button specific styles - matching other File Operations buttons */
+  .export-dropdown .toolbar-button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem;
+    background: rgb(82, 88, 102);
+    border: none;
+    border-radius: 0.5rem;
+    color: white;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .export-dropdown .toolbar-button:hover {
+    background: rgb(94, 100, 114);
+  }
+
+  .export-dropdown .toolbar-button .caret {
+    margin-left: auto;
+    opacity: 0.7;
+  }
+
+  /* Dropdown menu styles - exact match to the glassy effect in the image */
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: rgba(108, 114, 127, 0.5);
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+    border-radius: 0.5rem;
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.1),
+      0 1px 1px rgba(255, 255, 255, 0.05);
+    z-index: 1000;
+    overflow: hidden;
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.75rem;
+    color: rgba(255, 255, 255, 0.98);
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    transition: background-color 0.15s ease;
+  }
+
+  .dropdown-item:hover {
+    background: rgba(122, 128, 141, 0.5);
+  }
+
+  .dropdown-item:active {
+    background: rgba(132, 138, 151, 0.5);
+  }
+
+  .dropdown-item svg {
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .dropdown-item:not(:last-child) {
+    border-bottom: 1px solid rgba(140, 146, 159, 0.2);
+  }
+
+  /* Keep existing toolbar button styles for other buttons */
+  .toolbar-button {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    background: var(--surface-2);
+    color: var(--text-1);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .toolbar-button:hover {
+    background: var(--surface-3);
+  }
+
+  .toolbar-button svg {
+    flex-shrink: 0;
+    color: var(--text-2);
+  }
+
+  .toolbar-button.danger {
+    color: var(--red-11);
+    border-color: var(--red-6);
+  }
+
+  .toolbar-button.danger:hover {
+    background: var(--red-3);
   }
 </style> 
