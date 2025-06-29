@@ -555,8 +555,8 @@
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background: rgba(108, 114, 127, 0.5);
-    backdrop-filter: blur(30px);
+    background: rgba(60, 79, 132, 0.6);
+    backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(30px);
     border-radius: 0.5rem;
     box-shadow: 
