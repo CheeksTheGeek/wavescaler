@@ -6,15 +6,15 @@
     // Recursive type for svelte:self, not strictly needed for TS but good for clarity
     // type SignalGroupComponent = typeof import('./SignalGroup.svelte').default;
   
-            export let group: WaveGroup;
-    export let parentIndex: number;
-    export let maxCycles: number;
-    export let hscale: number = 1;
-    export let level: number = 0;
-    export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
-    export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
-    export let signalIndexMap: Map<any, number>;
-    export let treePath: number[] = [];
+              export let group: WaveGroup;
+  export let parentIndex: number;
+  export let maxCycles: number;
+  export let hscale: number = 1;
+  export let level: number = 0;
+  export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
+  export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
+  export let signalIndexMap: Map<any, number>;
+  export let treePath: number[] = [];
 
     const dispatch = createEventDispatcher<{
       signalchange: { signalIndex: number; newSignal: WaveSignal };

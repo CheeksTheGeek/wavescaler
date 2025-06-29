@@ -19,13 +19,59 @@
 
   const dispatch = createEventDispatcher<{
     transitionclick: { fromCycleIndex: number; toCycleIndex: number };
-    transitiondrag: { fromCycleIndex: number; toCycleIndex: number; deltaY: number };
+    transitiondrag: { fromCycleIndex: number; toCycleIndex: number; deltaX: number; dragMode: 'default' | 'extend' };
   }>();
+
+  // Drag state
+  let isDragging = false;
+  let isHovering = false;
+  let dragStartX = 0;
+  let dragMode: 'default' | 'extend' = 'default';
+  let dragDelta = 0;
+  let currentMouseX = 0;
+  let dragRailContainer: HTMLElement;
 
   // Use the same positioning logic as SignalCycle to ensure perfect alignment
   $: fullCycleWidth = 40 * hscale;
   $: transitionWidth = 8 * hscale;
   $: halfTransitionWidth = transitionWidth / 2;
+  
+  // Drag rail configuration - align with grid
+  $: maxDragRange = 8; // Maximum cycles in each direction  
+  $: railWidth = (maxDragRange * 2 + 1) * fullCycleWidth; // Total rail width
+  $: railStartX = -maxDragRange * fullCycleWidth; // Relative to transition
+  
+  // Calculate snap positions relative to the current transition position  
+  $: snapPositions = Array.from({ length: maxDragRange * 2 + 1 }, (_, i) => {
+    const cycleOffset = i - maxDragRange; // -maxDragRange to +maxDragRange
+    const targetCycleIndex = fromCycle.cycleIndex + 1 + cycleOffset; // Target cycle boundary
+    
+    return {
+      cycleOffset,
+      targetCycleIndex,
+      isValid: (dragMode === 'extend' ? cycleOffset >= 0 : true) && targetCycleIndex >= 0 // Don't allow negative cycle indices
+    };
+  });
+  
+  // Find the nearest snap position
+  $: nearestSnapPosition = isDragging ? findNearestSnapPosition(currentMouseX - dragStartX) : null;
+  
+  function findNearestSnapPosition(deltaX: number) {
+    let nearest = snapPositions[0];
+    let minDistance = Math.abs(deltaX - nearest.cycleOffset * fullCycleWidth);
+    
+    for (const pos of snapPositions) {
+      if (!pos.isValid) continue;
+      
+      const distance = Math.abs(deltaX - pos.cycleOffset * fullCycleWidth);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearest = pos;
+      }
+    }
+    
+    return nearest;
+  }
   
   // Calculate signal line positions for perfect alignment
   function getSignalLinePosition(cycle: typeof fromCycle, hasLeftTransition: boolean, hasRightTransition: boolean): { y: number; left: number; width: number; topY: number; bottomY: number } {
@@ -179,15 +225,78 @@
   }
 
   function handleClick(event: MouseEvent) {
-    dispatch('transitionclick', {
-      fromCycleIndex: fromCycle.cycleIndex,
-      toCycleIndex: toCycle.cycleIndex
-    });
+    if (!isDragging) {
+      dispatch('transitionclick', {
+        fromCycleIndex: fromCycle.cycleIndex,
+        toCycleIndex: toCycle.cycleIndex
+      });
+    }
+  }
+
+  function handleMouseEnter() {
+    isHovering = true;
+  }
+
+  function handleMouseLeave() {
+    if (!isDragging) {
+      isHovering = false;
+    }
   }
 
   function handleMouseDown(event: MouseEvent) {
-    // Future: implement drag functionality
     event.preventDefault();
+    event.stopPropagation();
+    
+    isDragging = true;
+    dragStartX = event.clientX;
+    currentMouseX = event.clientX;
+    dragMode = event.metaKey || event.ctrlKey ? 'extend' : 'default';
+    dragDelta = 0;
+
+    // Add global mouse event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  function handleMouseMove(event: MouseEvent) {
+    if (!isDragging) return;
+    
+    currentMouseX = event.clientX;
+    const rawDelta = currentMouseX - dragStartX;
+    
+    // Find nearest snap position
+    const nearestSnap = findNearestSnapPosition(rawDelta);
+    const snappedDelta = nearestSnap.cycleOffset;
+    
+    // Only dispatch if we've moved to a different snap position
+    if (snappedDelta !== dragDelta) {
+      dragDelta = snappedDelta;
+      
+      // Only dispatch valid moves
+      if (nearestSnap.isValid && Math.abs(snappedDelta) >= 1) {
+        dispatch('transitiondrag', {
+          fromCycleIndex: fromCycle.cycleIndex,
+          toCycleIndex: toCycle.cycleIndex,
+          deltaX: snappedDelta,
+          dragMode
+        });
+      }
+    }
+  }
+
+  function handleMouseUp(event: MouseEvent) {
+    isDragging = false;
+    isHovering = false;
+    dragDelta = 0;
+    currentMouseX = 0;
+    
+    // Remove global mouse event listeners
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
   }
 
   $: transitionType = getTransitionType();
@@ -234,6 +343,9 @@
   $: adjustedDeltaY = (transitionType === 'cross' && Math.abs(deltaY) < 1) ? 8 : deltaY;
   $: lineAngle = Math.atan2(adjustedDeltaY, transitionWidth) * (180 / Math.PI);
   $: lineLength = Math.sqrt(transitionWidth * transitionWidth + adjustedDeltaY * adjustedDeltaY);
+
+  // Calculate drag handle position (center of transition)
+  $: dragHandleY = (fromY + toY) / 2;
 </script>
 
 {#if transitionType !== 'none'}
@@ -241,6 +353,8 @@
     class="signal-transition {transitionType}"
     class:interactive={true}
     class:data-transition={isDataTransition}
+    class:hovering={isHovering}
+    class:dragging={isDragging}
     style="
       width: {transitionWidth}px;
       --from-y: {fromY}px;
@@ -257,13 +371,18 @@
       --cross-line-2-length: {crossLine2Length}px;
       --is-clean-cross: {isCleanCross ? 1 : 0};
       --cycle-height: {40}px;
+      --drag-handle-y: {dragHandleY}px;
+      --rail-width: {railWidth}px;
+      --rail-start-x: {railStartX}px;
     "
     on:click={handleClick}
     on:mousedown={handleMouseDown}
+    on:mouseenter={handleMouseEnter}
+    on:mouseleave={handleMouseLeave}
     on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(new MouseEvent('click')); } }}
     role="button"
     tabindex="0"
-    title="Transition: {fromCycle.effectiveChar} → {toCycle.effectiveChar}"
+    title="Transition: {fromCycle.effectiveChar} → {toCycle.effectiveChar} (drag to modify timing)"
   >
     <!-- Rising transition -->
     {#if transitionType === 'rising'}
@@ -280,6 +399,64 @@
         
         <div class="cross-line cross-line-1"></div>
         <div class="cross-line cross-line-2"></div>
+      </div>
+    {/if}
+    
+    <!-- Drag handle (thick dot) -->
+    <div class="drag-handle" style="top: var(--drag-handle-y);"></div>
+    
+    <!-- Drag rail (only visible during dragging) -->
+    {#if isDragging}
+      <div 
+        class="drag-rail" 
+        style="
+          width: var(--rail-width); 
+          left: var(--rail-start-x); 
+          top: var(--drag-handle-y);
+        "
+        bind:this={dragRailContainer}
+      >
+        <!-- Rail track -->
+        <div class="rail-track"></div>
+        
+        <!-- Snap points -->
+        {#each snapPositions as snapPos}
+          <div 
+            class="snap-point"
+            class:active={nearestSnapPosition?.cycleOffset === snapPos.cycleOffset}
+            class:invalid={!snapPos.isValid}
+            style="left: {(snapPos.cycleOffset + maxDragRange) * fullCycleWidth + halfTransitionWidth}px;"
+          >
+            <div class="snap-point-dot"></div>
+            {#if Math.abs(snapPos.cycleOffset) <= 3}
+              <div class="snap-point-label">
+                {#if snapPos.cycleOffset === 0}
+                  Current
+                {:else}
+                  {snapPos.cycleOffset > 0 ? '+' : ''}{snapPos.cycleOffset}
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
+        
+        <!-- Current position indicator -->
+        {#if nearestSnapPosition}
+          <div 
+            class="position-indicator"
+            style="left: {(nearestSnapPosition.cycleOffset + maxDragRange) * fullCycleWidth + halfTransitionWidth}px;"
+          ></div>
+        {/if}
+        
+        <!-- Mode indicator -->
+        <div class="mode-indicator">
+          <span class="mode-label">{dragMode === 'extend' ? 'EXTEND' : 'DEFAULT'}</span>
+          {#if dragMode === 'extend'}
+            <span class="mode-hint">→ Push forward</span>
+          {:else}
+            <span class="mode-hint">↔ Take over</span>
+          {/if}
+        </div>
       </div>
     {/if}
   </div>
@@ -302,14 +479,187 @@
   }
 
   .signal-transition.interactive:hover {
+    background-color: rgba(37, 99, 235, 0.05);
+    border-radius: 2px;
+  }
+
+  .signal-transition.hovering {
     background-color: rgba(37, 99, 235, 0.1);
     border-radius: 2px;
+  }
+
+  .signal-transition.dragging {
+    background-color: rgba(37, 99, 235, 0.15);
+    cursor: ew-resize;
   }
 
   .signal-transition:focus {
     outline: 2px solid var(--color-accent-primary);
     outline-offset: 1px;
     border-radius: var(--radius-sm);
+  }
+
+  /* Drag handle (thick dot) */
+  .drag-handle {
+    position: absolute;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background-color: var(--color-accent-primary);
+    border: 2px solid white;
+    border-radius: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    z-index: 10;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .signal-transition.hovering .drag-handle,
+  .signal-transition.dragging .drag-handle {
+    opacity: 1;
+  }
+
+  .signal-transition.dragging .drag-handle {
+    background-color: var(--color-accent-medium);
+    transform: translateX(-50%) translateY(-50%) scale(1.2);
+  }
+
+  /* Drag rail */
+  .drag-rail {
+    position: absolute;
+    height: 60px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0;
+    animation: railFadeIn 0.2s ease forwards;
+  }
+
+  @keyframes railFadeIn {
+    from { opacity: 0; transform: translateY(-50%) scale(0.9); }
+    to { opacity: 1; transform: translateY(-50%) scale(1); }
+  }
+
+  .rail-track {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, 
+      rgba(37, 99, 235, 0.3) 0%, 
+      rgba(37, 99, 235, 0.6) 50%, 
+      rgba(37, 99, 235, 0.3) 100%
+    );
+    border-radius: 1px;
+    transform: translateY(-50%);
+  }
+
+  .snap-point {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    transform: translateX(-50%) translateY(-50%);
+    transition: all 0.15s ease;
+  }
+
+  .snap-point.invalid {
+    opacity: 0.3;
+  }
+
+  .snap-point-dot {
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-accent-primary);
+    border: 1px solid white;
+    border-radius: 50%;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .snap-point.active .snap-point-dot {
+    background-color: var(--color-accent-medium);
+    transform: scale(1.3);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+  }
+
+  .snap-point.invalid .snap-point-dot {
+    background-color: var(--color-text-tertiary);
+    border-color: var(--color-bg-secondary);
+  }
+
+  .snap-point-label {
+    position: absolute;
+    top: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background-color: var(--color-bg-primary);
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 1px solid var(--color-border);
+    white-space: nowrap;
+    opacity: 0.8;
+    transition: opacity 0.15s ease;
+  }
+
+  .snap-point.active .snap-point-label {
+    opacity: 1;
+    color: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+    font-weight: 600;
+  }
+
+  .position-indicator {
+    position: absolute;
+    top: 50%;
+    width: 3px;
+    height: 30px;
+    background-color: var(--color-accent-primary);
+    border-radius: 2px;
+    transform: translateX(-50%) translateY(-50%);
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.5);
+    animation: indicatorPulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes indicatorPulse {
+    from { opacity: 0.8; transform: translateX(-50%) translateY(-50%) scaleY(1); }
+    to { opacity: 1; transform: translateX(-50%) translateY(-50%) scaleY(1.1); }
+  }
+
+  .mode-indicator {
+    position: absolute;
+    top: -35px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-accent-primary);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-accent-primary);
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .mode-label {
+    display: block;
+    text-align: center;
+  }
+
+  .mode-hint {
+    display: block;
+    font-size: 9px;
+    font-weight: 400;
+    color: var(--color-text-secondary);
+    text-align: center;
+    margin-top: 1px;
   }
 
   /* Transition lines with calculated positioning */
@@ -482,7 +832,6 @@
 
   .signal-transition.interactive:hover {
     border-color: var(--color-accent-light);
-    background-color: var(--color-accent-light);
   }
 
   .signal-transition.interactive:active {

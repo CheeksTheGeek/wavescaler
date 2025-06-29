@@ -22,6 +22,7 @@
       laneselection: { signalIndex: number; signalName: string; shiftKey: boolean };
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
+      transitiondrag: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; deltaX: number; dragMode: 'default' | 'extend' };
       signalreorder: { fromIndex: number; toIndex: number };
       dragstart: { path: number[]; itemType: 'signal'; event: DragEvent };
       drop: { targetPath: number[]; position: 'before' | 'after'; event: DragEvent };
@@ -352,6 +353,60 @@
       });
     }
 
+    function handleTransitionDrag(event: CustomEvent<{ fromCycleIndex: number; toCycleIndex: number; deltaX: number; dragMode: 'default' | 'extend' }>) {
+      const { fromCycleIndex, toCycleIndex, deltaX, dragMode } = event.detail;
+      
+      // Convert signal wave to array for manipulation
+      const waveChars = signal.wave.split('');
+      const newWaveChars = [...waveChars];
+      
+      if (dragMode === 'default') {
+        // Default mode: extend/contract segments by taking over neighboring segments
+        if (deltaX > 0) {
+          // Dragging right - extend the 'from' segment by taking over 'to' segment
+          const fromChar = waveChars[fromCycleIndex] || '';
+          
+          // Replace characters from toCycleIndex onwards with the fromChar
+          for (let i = 0; i < Math.abs(deltaX) && (toCycleIndex + i) < newWaveChars.length; i++) {
+            newWaveChars[toCycleIndex + i] = fromChar;
+          }
+        } else if (deltaX < 0) {
+          // Dragging left - extend the 'to' segment by taking over 'from' segment
+          const toChar = waveChars[toCycleIndex] || '';
+          
+          // Replace characters from fromCycleIndex backwards with the toChar
+          for (let i = 0; i < Math.abs(deltaX) && (fromCycleIndex - i) >= 0; i++) {
+            newWaveChars[fromCycleIndex - i] = toChar;
+          }
+        }
+      } else if (dragMode === 'extend') {
+        // Extend mode (Cmd/Ctrl held): push everything forward like a stack
+        if (deltaX > 0) {
+          // Only allow dragging right in extend mode
+          const fromChar = waveChars[fromCycleIndex] || '';
+          
+          // Insert new characters at the transition point, pushing everything else right
+          for (let i = 0; i < Math.abs(deltaX); i++) {
+            newWaveChars.splice(toCycleIndex, 0, fromChar);
+          }
+          
+          // Trim the array if it got too long (optional, based on maxCycles)
+          if (newWaveChars.length > maxCycles) {
+            newWaveChars.splice(maxCycles);
+          }
+        }
+        // Note: Dragging left in extend mode doesn't make physical sense as mentioned in requirements
+      }
+      
+      // Create new signal with modified wave
+      const newSignal = {
+        ...signal,
+        wave: newWaveChars.join('')
+      };
+      
+      dispatch('signalchange', { signalIndex, newSignal });
+    }
+
     function startEditingSpan(spanIndex: number) {
       editingSpan = spanIndex;
     }
@@ -610,6 +665,7 @@
             toCycle={nextCycle}
             {hscale}
             on:transitionclick={handleTransitionClick}
+            on:transitiondrag={handleTransitionDrag}
           />
           </div>
         {/if}

@@ -19,6 +19,7 @@
     groupselection: { groupName: string; signalIndices: number[]; shiftKey: boolean };
     cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
     transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
+    transitiondrag: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; deltaX: number; dragMode: 'default' | 'extend' };
     rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
   }>();
 
@@ -696,6 +697,7 @@
               on:laneselection={(e) => dispatch('laneselection', e.detail)}
               on:rightclick={(e) => handleRightClick(e)}
               on:transitionclick={(e) => dispatch('transitionclick', e.detail)}
+              on:transitiondrag={(e) => dispatch('transitiondrag', e.detail)}
               on:signalreorder={(e) => handleSignalReorder(e)}
               on:dragstart={(e) => handleDragStart(e.detail.event, e.detail.path, e.detail.itemType)}
               on:drop={(e) => handleDrop(e.detail.event, e.detail.targetPath, e.detail.position)}
