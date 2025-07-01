@@ -58,7 +58,7 @@ WaveDrom showed the hardware world that timing diagrams could be written as text
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/wavescaler.git
+git clone https://github.com/cheeksthegeek/wavescaler.git
 cd wavescaler
 
 # Install dependencies
