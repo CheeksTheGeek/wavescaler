@@ -9,7 +9,7 @@ Wavescaler is a powerful, browser-based waveform diagram editor built with Svelt
 <!-- ![Waveform Editor Demo](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=Wavescaler+Demo) -->
 
 
-#  The ***Why*** of it
+# The ***Why*** of it
 
 WaveDrom showed the hardware world that timing diagrams could be written as text and rendered anywhere — great for version-control, terrible for day-to-day editing. Teams still copy-paste raw **WaveJSON** into repos and paste static PNGs into Google Docs, because the stock WaveDrom editor is minimalist. **Wavescaler** turns those script-only workflows into a fully-interactive, SvelteKit-powered experience that’s ready for professional verification teams, technical writers, and IP vendors alike. 
 
@@ -18,8 +18,6 @@ WaveDrom showed the hardware world that timing diagrams could be written as text
 - Yet the official WaveDrom Editor stayed a minimal textarea-plus-preview with sporadic export bugs, no rich undo/redo and no structured editing.  Issues like broken PNG export and missing sub-cycle pulses remain open for years. 
 
 - Large-scale SoC projects therefore embed raw WaveJSON blobs in HDL repos and manually export static images for specs — losing interactivity, inviting errors, and wasting review cycles.
-
-
 
 ## ✨ Features
 
