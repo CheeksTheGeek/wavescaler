@@ -6,7 +6,7 @@ WaveScaler is a powerful, browser-based waveform diagram editor built with Svelt
 
 > **⚠️ Alpha Release** - WaveScaler is currently in active development. While functional, you may encounter bugs or breaking changes. We welcome feedback and contributions!
 
-<!-- ![Waveform Editor Demo](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=WaveScaler+Demo) -->
+<!-- ![Waveform Editor Demo Video](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=WaveScaler+Demo) -->
 
 ![banner](img/WaveScaler.png)
 
