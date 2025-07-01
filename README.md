@@ -74,32 +74,27 @@ npm run dev
 
 Open your browser to `http://localhost:5173` and start creating waveforms!
 
-## 🎯 Key Features in Detail
+### 🎯 Some rough guide how to use (I'll add an interactive guide later on)
 
-### Interactive Editing
+#### Interactive Editing
 - **Click any cycle** to modify its value
 - **Shift+click** for multi-selection
 - **Right-click** for context menus
 - **Drag** to reorder signals
 
-### Command Palette (`Ctrl/Cmd+K`)
+#### Command Palette (`Ctrl/Cmd+K`)
 - Add signals and groups
 - Export in multiple formats  
 - Clear waveform
 - Undo/redo operations
 
-### Selection Tools
+#### Selection Tools
 - Select individual cycles, entire signals, or groups
 - Apply operations to selections:
   - Set values (`0`, `1`, `x`, `z`, etc.)  
   - Copy/paste patterns
   - Invert logic levels
   - Duplicate selections
-
-### Export Options
-- **JSON** - Save your waveform data
-- **SVG** - Vector graphics for documentation
-- **PNG/JPEG** - Raster images for presentations
 
 ## 🛠️ Development
 
