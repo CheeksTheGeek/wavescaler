@@ -1015,7 +1015,7 @@
 	<header class="app-header">
 		<div class="header-content">
 			<div class="header-text">
-				<h1>Wavescaler</h1>
+				<h1>WaveScaler</h1>
 				<p>Interactive Digital Waveform Editor</p>
 			</div>
 			<div class="header-actions">

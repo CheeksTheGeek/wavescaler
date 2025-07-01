@@ -1,17 +1,19 @@
-# 🌊 Wavescaler
+# 🌊 WaveScaler
 
 **A modern, interactive digital waveform editor for the web**
 
-Wavescaler is a powerful, browser-based waveform diagram editor built with SvelteKit and Monaco Editor. Create, edit, and visualize digital timing diagrams using the WaveJSON format with an intuitive interface and advanced editing capabilities.
+WaveScaler is a powerful, browser-based waveform diagram editor built with SvelteKit and Monaco Editor. Create, edit, and visualize digital timing diagrams using the WaveJSON format with an intuitive interface and advanced editing capabilities.
 
-> **⚠️ Alpha Release** - Wavescaler is currently in active development. While functional, you may encounter bugs or breaking changes. We welcome feedback and contributions!
+> **⚠️ Alpha Release** - WaveScaler is currently in active development. While functional, you may encounter bugs or breaking changes. We welcome feedback and contributions!
 
-<!-- ![Waveform Editor Demo](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=Wavescaler+Demo) -->
+<!-- ![Waveform Editor Demo](https://via.placeholder.com/800x400/1a1a1a/ffffff?text=WaveScaler+Demo) -->
+
+![banner](img/WaveScaler.png)
 
 
 # The ***Why*** of it
 
-WaveDrom showed the hardware world that timing diagrams could be written as text and rendered anywhere — great for version-control, terrible for day-to-day editing. Teams still copy-paste raw **WaveJSON** into repos and paste static PNGs into Google Docs, because the stock WaveDrom editor is minimalist. **Wavescaler** turns those script-only workflows into a fully-interactive, SvelteKit-powered experience that’s ready for professional verification teams, technical writers, and IP vendors alike. 
+WaveDrom showed the hardware world that timing diagrams could be written as text and rendered anywhere — great for version-control, terrible for day-to-day editing. Teams still copy-paste raw **WaveJSON** into repos and paste static PNGs into Google Docs, because the stock WaveDrom editor is minimalist. **WaveScaler** turns those script-only workflows into a fully-interactive, SvelteKit-powered experience that’s ready for professional verification teams, technical writers, and IP vendors alike. 
 
 - **WaveDrom (2010-)** introduced *WaveJSON*, a terse language for timing diagrams, rendered to SVG/PNG in-browser.  It solved version-control pain and made diagrams text-diff-friendly. 
 
@@ -126,11 +128,11 @@ We welcome contributions!
 
 ## 📚 WaveJSON Format
 
-Wavescaler uses the WaveJSON format, which is compatible with WaveDrom. For detailed format documentation, see the [WaveDrom tutorial](https://wavedrom.com/tutorial.html).
+WaveScaler uses the WaveJSON format, which is compatible with WaveDrom. For detailed format documentation, see the [WaveDrom tutorial](https://wavedrom.com/tutorial.html).
 
 ## 🎨 Themes
 
-Wavescaler supports both light and dark themes. Toggle between themes using the theme button in the toolbar or `Ctrl/Cmd+Shift+T`.
+WaveScaler supports both light and dark themes. Toggle between themes using the theme button in the toolbar or `Ctrl/Cmd+Shift+T`.
 
 
 ## 📄 License
