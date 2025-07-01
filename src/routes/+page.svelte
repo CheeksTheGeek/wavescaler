@@ -1232,13 +1232,14 @@
 		margin: 0 0 0.25rem 0;
 		font-size: 1.75rem;
 		font-weight: 700;
+		color: white;
 	}
 
 	.header-text p {
 		margin: 0;
 		opacity: 0.9;
 		font-size: 0.95rem;
-		color: var(--color-text-inverse);
+		color: white;
 	}
 
 	.header-actions {
