@@ -23,7 +23,7 @@ WaveDrom showed the hardware world that timing diagrams could be written as text
 
 ## ✨ Features
 
-**So many things to fix at the moment** <img src="https://github.com/CheeksTheGeek/wavescaler/blob/4dc44075eda29468356d1c638122f52024813439/img/cooked.png" alt="cooked" height="24" style="vertical-align: text-bottom;" style="filter: invert(100%);">
+**So many things to fix at the moment** <img src="https://github.com/CheeksTheGeek/wavescaler/blob/fdf2e77be4862d764d747b0ad51ee8d4ed9e56ff/img/cooked.png" alt="cooked" height="24" style="vertical-align: text-bottom;" style="filter: invert(100%);">
 
 ### 🎨 **Interactive Editing**
 - **Visual waveform editing** - Click and modify signal values directly on the diagram
