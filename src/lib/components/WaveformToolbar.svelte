@@ -10,6 +10,7 @@
   $: redoEnabled = $canRedo;
 
   export let waveJson: WaveJson;
+  export let editorVisible: boolean = false;
 
   const dispatch = createEventDispatcher<{
     addsignal: { signal: WaveSignal };
@@ -27,7 +28,6 @@
   let showTextImport = false;
   let importText = '';
   let showExportDropdown = false;
-  let editorVisible = false;
 
   // Generate better signal names
   function generateSignalName(): string {
@@ -176,8 +176,7 @@
   }
 
   function toggleEditor() {
-    editorVisible = !editorVisible;
-    dispatch('toggleeditor', { visible: editorVisible });
+    dispatch('toggleeditor', { visible: !editorVisible });
   }
 
 </script>

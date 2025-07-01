@@ -13,6 +13,7 @@
 	const dispatch = createEventDispatcher<{
 		change: { waveJson: WaveJson };
 		error: { message: string };
+		close: {};
 	}>();
 
 	let editorElement: HTMLDivElement;
@@ -21,6 +22,20 @@
 	let monaco: any;
 	let isUpdatingFromProp = false;
 	let isUpdatingFromEditor = false;
+
+	// Resize functionality
+	let editorWidth = 400; // Default width
+	let isResizing = false;
+	let resizeStartX = 0;
+	let resizeStartWidth = 0;
+
+	// Load saved width from localStorage on mount
+	if (typeof window !== 'undefined') {
+		const savedWidth = localStorage.getItem('wavescaler-editor-width');
+		if (savedWidth) {
+			editorWidth = parseInt(savedWidth, 10);
+		}
+	}
 
 	// Define custom Monaco themes that match Wavescaler's theme
 	const wavescalerLightTheme = {
@@ -264,8 +279,92 @@
 		}
 	}
 
+	// Resize handlers
+	function handleResizeStart(event: MouseEvent) {
+		isResizing = true;
+		resizeStartX = event.clientX;
+		resizeStartWidth = editorWidth;
+		
+		// Prevent text selection during resize
+		document.body.style.userSelect = 'none';
+		document.body.style.cursor = 'col-resize';
+		
+		// Add global mouse listeners
+		document.addEventListener('mousemove', handleResizeMove);
+		document.addEventListener('mouseup', handleResizeEnd);
+	}
+
+	function handleResizeMove(event: MouseEvent) {
+		if (!isResizing) return;
+		
+		const deltaX = event.clientX - resizeStartX;
+		const newWidth = Math.max(250, Math.min(window.innerWidth * 0.8, resizeStartWidth - deltaX)); // Allow resizing up to 80% of window width
+		editorWidth = newWidth;
+	}
+
+	function handleResizeEnd() {
+		if (!isResizing) return;
+		
+		isResizing = false;
+		
+		// Restore normal cursor and text selection
+		document.body.style.userSelect = '';
+		document.body.style.cursor = '';
+		
+		// Remove global listeners
+		document.removeEventListener('mousemove', handleResizeMove);
+		document.removeEventListener('mouseup', handleResizeEnd);
+		
+		// Save to localStorage
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('wavescaler-editor-width', editorWidth.toString());
+		}
+	}
+
+	// Double-click functionality
+	function getCenteredWidth(): number {
+		return Math.floor(window.innerWidth * 0.45); // 45% of window width
+	}
+
+	function isCentered(): boolean {
+		const centered = getCenteredWidth();
+		return Math.abs(editorWidth - centered) < 20; // Within 20px tolerance
+	}
+
+	function handleResizeDoubleClick(event: MouseEvent) {
+		event.preventDefault();
+		
+		// Cmd/Meta + double-click = close directly
+		if (event.metaKey || event.ctrlKey) {
+			dispatch('close', {});
+			return;
+		}
+		
+		// Regular double-click behavior
+		if (isCentered()) {
+			// Already centered, close the editor
+			dispatch('close', {});
+		} else {
+			// Not centered, center it
+			editorWidth = getCenteredWidth();
+			
+			// Save the new width
+			if (typeof window !== 'undefined') {
+				localStorage.setItem('wavescaler-editor-width', editorWidth.toString());
+			}
+		}
+	}
+
 	onDestroy(() => {
 		if (browser) {
+			// Clean up resize listeners in case component is destroyed during resize
+			if (isResizing) {
+				document.removeEventListener('mousemove', handleResizeMove);
+				document.removeEventListener('mouseup', handleResizeEnd);
+				document.body.style.userSelect = '';
+				document.body.style.cursor = '';
+			}
+			
 			if (model) {
 				model.dispose();
 			}
@@ -276,7 +375,18 @@
 	});
 </script>
 
-<div class="monaco-container" class:visible>
+<div class="monaco-container" class:visible style="width: {editorWidth}px">
+	<!-- Resize Handle -->
+	<div 
+		class="resize-handle"
+		class:resizing={isResizing}
+		on:mousedown={handleResizeStart}
+		on:dblclick={handleResizeDoubleClick}
+		role="separator"
+		aria-label="Resize editor panel"
+		title="Drag to resize • Double-click to center/close • Cmd+double-click to close"
+	></div>
+	
 	<div class="monaco-header">
 		<h3>WaveJSON Editor</h3>
 		<button class="format-button" on:click={formatJson} title="Format JSON (Shift+Alt+F)">
@@ -295,16 +405,16 @@
 	.monaco-container {
 		display: none;
 		flex-direction: column;
-		height: 100%;
+		height: calc(100% - 2rem);
 		background-color: var(--color-bg-elevated);
 		border-left: 1px solid var(--color-border-primary);
-		width: 400px;
-		min-width: 300px;
-		max-width: 600px;
-		resize: horizontal;
 		overflow: hidden;
 		border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-		isolation: isolate;
+		position: relative;
+		flex-shrink: 0;
+		margin-top: 1rem;
+		margin-bottom: 1rem;
+		margin-right: 1rem;
 	}
 
 	.monaco-container.visible {
@@ -358,8 +468,6 @@
 		position: relative;
 		overflow: hidden;
 		border-radius: 0 0 var(--radius-lg) 0;
-		mask-image: radial-gradient(white, black);
-		-webkit-mask-image: -webkit-radial-gradient(white, black);
 		z-index: 0;
 	}
 
@@ -380,8 +488,6 @@
 
 	:global(.monaco-editor .overflow-guard) {
 		border-radius: 0 0 var(--radius-lg) 0 !important;
-		mask-image: radial-gradient(white, black);
-		-webkit-mask-image: -webkit-radial-gradient(white, black);
 		overflow: hidden !important;
 	}
 
@@ -409,24 +515,47 @@
 		overflow: hidden !important;
 	}
 
-	/* Resize handle styling */
-	.monaco-container {
-		position: relative;
-	}
-
-	.monaco-container::before {
-		content: '';
+	/* Custom resize handle */
+	.resize-handle {
 		position: absolute;
 		left: 0;
 		top: 0;
 		bottom: 0;
 		width: 4px;
+		background-color: transparent;
 		cursor: col-resize;
-		background: transparent;
-		z-index: 10;
+		z-index: 100;
+		transition: background-color 0.15s ease;
 	}
 
-	.monaco-container::before:hover {
-		background: var(--color-accent-light);
+	.resize-handle:hover {
+		background-color: var(--color-accent-light);
+	}
+
+	.resize-handle.resizing {
+		background-color: var(--color-accent-medium);
+	}
+
+	/* Add a subtle visual indicator */
+	.resize-handle::after {
+		content: '';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		width: 1px;
+		height: 20px;
+		background-color: var(--color-border-secondary);
+		opacity: 0;
+		transition: opacity 0.15s ease, background-color 0.2s ease;
+	}
+
+	.resize-handle:hover::after {
+		opacity: 1;
+	}
+
+	.resize-handle.resizing::after {
+		opacity: 1;
+		background-color: var(--color-accent-primary);
 	}
 </style> 

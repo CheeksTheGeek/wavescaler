@@ -45,11 +45,10 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 100%;
+    width: calc(var(--name-width, 150px) + var(--total-width));
     height: 100%;
     z-index: 0;
     pointer-events: none;
-    min-width: calc(var(--name-width, 150px) + var(--full-cycle-width, 40px) * 16);
   }
 
   .time-scale {

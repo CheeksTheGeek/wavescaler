@@ -1029,6 +1029,7 @@
 		<aside class="app-sidebar">
 			<WaveformToolbar 
 				waveJson={waveformData}
+				editorVisible={editorVisible}
 				on:addsignal={handleAddSignal}
 				on:addgroup={handleAddGroup}
 				on:addspacer={handleAddSpacer}
@@ -1081,6 +1082,7 @@
 				visible={editorVisible}
 				on:change={handleEditorChange}
 				on:error={handleEditorError}
+				on:close={() => editorVisible = false}
 			/>
 		</div>
 	</main>
