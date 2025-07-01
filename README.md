@@ -74,7 +74,7 @@ npm run dev
 
 Open your browser to `http://localhost:5173` and start creating waveforms!
 
-### 🎯 Some rough guide how to use (I'll add an interactive guide later on)
+### 🎯 Some rough guide on how to use (I'll add an interactive guide later on)
 
 #### Interactive Editing
 - **Click any cycle** to modify its value
