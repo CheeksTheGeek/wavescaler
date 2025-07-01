@@ -17,11 +17,13 @@ WaveDrom showed the hardware world that timing diagrams could be written as text
 
 - **WaveDrom (2010-)** introduced *WaveJSON*, a terse language for timing diagrams, rendered to SVG/PNG in-browser.  It solved version-control pain and made diagrams text-diff-friendly. 
 
-- Yet the official WaveDrom Editor stayed a minimal textarea-plus-preview with sporadic export bugs, no rich undo/redo and no structured editing.  Issues like broken PNG export and missing sub-cycle pulses remain open for years. 
+- Yet the official WaveDrom Editor stayed a minimal textarea-plus-preview.
 
 - Large-scale SoC projects therefore embed raw WaveJSON blobs in HDL repos and manually export static images for specs — losing interactivity, inviting errors, and wasting review cycles.
 
 ## ✨ Features
+
+**So many things to fix at the moment** ![](img/cooked.png)
 
 ### 🎨 **Interactive Editing**
 - **Visual waveform editing** - Click and modify signal values directly on the diagram
