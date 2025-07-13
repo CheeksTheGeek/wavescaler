@@ -1016,7 +1016,7 @@
 		<div class="header-content">
 			<div class="header-text">
 				<h1>WaveScaler</h1>
-				<p>Interactive Digital Waveform Editor</p>
+				<p>Interactive Timing Diagram Editor</p>
 			</div>
 			<div class="header-actions">
 				<ThemeToggle />
