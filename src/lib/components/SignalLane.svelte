@@ -51,7 +51,7 @@
     let nameInput = '';
     let editingSpan: number | null = null;
     let signalCyclesContainer: HTMLElement;
-    let recalculateTimeout: number;
+    let recalculateTimeout: ReturnType<typeof setTimeout>;
     let transitionPositions: Array<{ left: number; width: number }> = [];
     let resizeObserver: ResizeObserver | null = null;
     let animationFrameId: number | null = null;
@@ -78,7 +78,19 @@
 
         // Handle continuation dots
         if (originalChar === '.') {
-          effectiveChar = effectivePrevChar || '';
+          // For dots, we need to find the last non-dot, non-gap character
+          let lookbackChar = effectivePrevChar;
+          if (!lookbackChar || lookbackChar === '|') {
+            // Look back through the wave to find the last real signal before any gaps
+            for (let k = i - 1; k >= 0; k--) {
+              const lookbackOriginal = k < waveChars.length ? waveChars[k] : '';
+              if (lookbackOriginal !== '.' && lookbackOriginal !== '|') {
+                lookbackChar = lookbackOriginal;
+                break;
+              }
+            }
+          }
+          effectiveChar = lookbackChar || '';
         }
 
         // Determine if this cycle is interactive (can be clicked/dragged)
@@ -489,9 +501,29 @@
     }
 
     function needsTransition(fromCycle: ProcessedCycle, toCycle: ProcessedCycle): boolean {
-      // Get visual representation for the cycle (same logic as SignalTransition)
-      function getCycleType(cycle: ProcessedCycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
+      // Get visual representation for the cycle, with gap handling
+      function getCycleType(cycle: ProcessedCycle, cycleIndex: number): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
         const char = cycle.effectiveChar;
+        
+        // For gap cycles, determine the underlying signal type for transition purposes
+        if (char === '|') {
+          // Find the underlying signal for this gap
+          for (let j = cycleIndex - 1; j >= 0; j--) {
+            const prevCycle = cycles[j];
+            if (prevCycle.originalChar !== '|' && prevCycle.originalChar !== '.') {
+              const underlyingChar = prevCycle.effectiveChar;
+              // Apply the same type logic to the underlying character
+              if (underlyingChar === '1' || underlyingChar === 'h' || underlyingChar === 'H' || underlyingChar === 'P') return 'high';
+              if (underlyingChar === '0' || underlyingChar === 'l' || underlyingChar === 'L' || underlyingChar === 'N') return 'low';
+              if (underlyingChar === 'x') return 'x';
+              if (underlyingChar === 'z') return 'z';
+              if (['=', '2', '3', '4', '5'].includes(underlyingChar)) return 'data';
+              if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(underlyingChar)) return 'clock';
+              break;
+            }
+          }
+          return 'gap'; // Fallback if no underlying signal found
+        }
         
         if (char === '1' || char === 'h' || char === 'H' || char === 'P') return 'high';
         if (char === '0' || char === 'l' || char === 'L' || char === 'N') return 'low';
@@ -499,13 +531,15 @@
         if (char === 'z') return 'z';
         if (['=', '2', '3', '4', '5'].includes(char)) return 'data';
         if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(char)) return 'clock';
-        if (char === '|') return 'gap';
         if (char === '') return 'empty';
         return 'unknown';
       }
 
-      const fromType = getCycleType(fromCycle);
-      const toType = getCycleType(toCycle);
+      const fromIndex = cycles.findIndex(c => c.cycleIndex === fromCycle.cycleIndex);
+      const toIndex = cycles.findIndex(c => c.cycleIndex === toCycle.cycleIndex);
+      
+      const fromType = getCycleType(fromCycle, fromIndex);
+      const toType = getCycleType(toCycle, toIndex);
       
       // No transition if from/to empty
       if (fromType === 'empty' || toType === 'empty') {
@@ -636,6 +670,18 @@
         {@const hasLeftTransition = prevCycle ? needsTransition(prevCycle, cycle) : false}
         {@const hasRightTransition = nextCycle ? needsTransition(cycle, nextCycle) : false}
         {@const reducedBorders = hasReducedBorders(cycle.cycleIndex)}
+        {@const underlyingSignal = (() => {
+          // For gap characters, find the last non-gap, non-dot character to continue
+          if (cycle.originalChar === '|') {
+            for (let j = index - 1; j >= 0; j--) {
+              const prevCycle = cycles[j];
+              if (prevCycle.originalChar !== '|' && prevCycle.originalChar !== '.') {
+                return prevCycle.effectiveChar;
+              }
+            }
+          }
+          return null;
+        })()}
         
         <!-- Render the cycle -->
         <SignalCycle
@@ -647,6 +693,7 @@
           hasRightTransition={hasRightTransition}
           hasReducedLeftBorder={reducedBorders.left}
           hasReducedRightBorder={reducedBorders.right}
+          {underlyingSignal}
           on:cyclechange={handleCycleChange}
           on:bulkcyclechange={handleBulkCycleChange}
           on:cellselection={(e) => dispatch('cellselection', e.detail)}
@@ -659,11 +706,35 @@
         {@const nextCycle = index < cycles.length - 1 ? cycles[index + 1] : null}
         {@const needsCurrentTransition = nextCycle ? needsTransition(cycle, nextCycle) : false}
         {#if nextCycle && needsCurrentTransition && transitionPositions[index] && transitionPositions[index].width > 0}
+          {@const fromUnderlyingSignal = (() => {
+            if (cycle.originalChar === '|') {
+              for (let j = index - 1; j >= 0; j--) {
+                const prevCycle = cycles[j];
+                if (prevCycle.originalChar !== '|' && prevCycle.originalChar !== '.') {
+                  return prevCycle.effectiveChar;
+                }
+              }
+            }
+            return null;
+          })()}
+          {@const toUnderlyingSignal = (() => {
+            if (nextCycle.originalChar === '|') {
+              for (let j = index; j >= 0; j--) {
+                const prevCycle = cycles[j];
+                if (prevCycle.originalChar !== '|' && prevCycle.originalChar !== '.') {
+                  return prevCycle.effectiveChar;
+                }
+              }
+            }
+            return null;
+          })()}
           <div class="transition-overlay" style="left: {transitionPositions[index].left}px; width: {transitionPositions[index].width}px;">
           <SignalTransition 
             fromCycle={cycle}
             toCycle={nextCycle}
             {hscale}
+            {fromUnderlyingSignal}
+            {toUnderlyingSignal}
             on:transitionclick={handleTransitionClick}
             on:transitiondrag={handleTransitionDrag}
           />

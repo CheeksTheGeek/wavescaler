@@ -136,7 +136,207 @@ export const coreCommands: CommandAction[] = [
     }
   },
   
-  // Edit commands - Note: Set value commands are handled by SelectionToolbar component
+  // Edit commands - Value setting commands
+  
+  {
+    id: 'set-gap',
+    title: 'Set to Gap',
+    description: 'Set selected cells to gap/timeskip (|)',
+    category: 'edit',
+    icon: '⏸️',
+    keywords: ['gap', 'timeskip', 'skip', 'break', '|'],
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Set all selected cells to gap character
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Ensure wave string is long enough
+          while (waveChars.length <= cell.cycleIndex) {
+            waveChars.push('');
+          }
+          
+          // Set this cell to gap
+          waveChars[cell.cycleIndex] = '|';
+          
+          const newSignal = { ...signal, wave: waveChars.join('') };
+          context.updateSignalAtIndex(cell.signalIndex, newSignal);
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
+    }
+  },
+  
+  {
+    id: 'set-high',
+    title: 'Set to High',
+    description: 'Set selected cells to high (1)',
+    category: 'edit',
+    icon: '⬆️',
+    keywords: ['high', '1', 'one', 'up'],
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Set all selected cells to high
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Ensure wave string is long enough
+          while (waveChars.length <= cell.cycleIndex) {
+            waveChars.push('');
+          }
+          
+          // Set this cell to high
+          waveChars[cell.cycleIndex] = '1';
+          
+          const newSignal = { ...signal, wave: waveChars.join('') };
+          context.updateSignalAtIndex(cell.signalIndex, newSignal);
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
+    }
+  },
+  
+  {
+    id: 'set-low',
+    title: 'Set to Low',
+    description: 'Set selected cells to low (0)',
+    category: 'edit',
+    icon: '⬇️',
+    keywords: ['low', '0', 'zero', 'down'],
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Set all selected cells to low
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Ensure wave string is long enough
+          while (waveChars.length <= cell.cycleIndex) {
+            waveChars.push('');
+          }
+          
+          // Set this cell to low
+          waveChars[cell.cycleIndex] = '0';
+          
+          const newSignal = { ...signal, wave: waveChars.join('') };
+          context.updateSignalAtIndex(cell.signalIndex, newSignal);
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
+    }
+  },
+  
+  {
+    id: 'set-unknown',
+    title: 'Set to Unknown',
+    description: 'Set selected cells to unknown (x)',
+    category: 'edit',
+    icon: '❓',
+    keywords: ['unknown', 'x', 'undefined'],
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Set all selected cells to unknown
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Ensure wave string is long enough
+          while (waveChars.length <= cell.cycleIndex) {
+            waveChars.push('');
+          }
+          
+          // Set this cell to unknown
+          waveChars[cell.cycleIndex] = 'x';
+          
+          const newSignal = { ...signal, wave: waveChars.join('') };
+          context.updateSignalAtIndex(cell.signalIndex, newSignal);
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
+    }
+  },
+  
+  {
+    id: 'set-highz',
+    title: 'Set to High-Z',
+    description: 'Set selected cells to high impedance (z)',
+    category: 'edit',
+    icon: '🔌',
+    keywords: ['highz', 'z', 'impedance', 'tristate'],
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Set all selected cells to high-z
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Ensure wave string is long enough
+          while (waveChars.length <= cell.cycleIndex) {
+            waveChars.push('');
+          }
+          
+          // Set this cell to high-z
+          waveChars[cell.cycleIndex] = 'z';
+          
+          const newSignal = { ...signal, wave: waveChars.join('') };
+          context.updateSignalAtIndex(cell.signalIndex, newSignal);
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
+    }
+  },
+  
+  {
+    id: 'set-data',
+    title: 'Set to Data',
+    description: 'Set selected cells to data (=)',
+    category: 'edit',
+    icon: '📊',
+    keywords: ['data', '=', 'equal', 'bus'],
+    isAvailable: (context) => context.selectedCells.length > 0,
+    execute: async (context) => {
+      // Set all selected cells to data
+      context.selectedCells.forEach(cell => {
+        const signal = context.getSignalAtIndex(cell.signalIndex);
+        if (signal) {
+          const waveChars = signal.wave.split('');
+          
+          // Ensure wave string is long enough
+          while (waveChars.length <= cell.cycleIndex) {
+            waveChars.push('');
+          }
+          
+          // Set this cell to data
+          waveChars[cell.cycleIndex] = '=';
+          
+          const newSignal = { ...signal, wave: waveChars.join('') };
+          context.updateSignalAtIndex(cell.signalIndex, newSignal);
+        }
+      });
+      
+      // Trigger reactivity
+      context.setWaveformData(context.waveformData);
+    }
+  },
+  
+  // Other edit commands
   
   {
     id: 'explicitate-selection',

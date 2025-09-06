@@ -16,6 +16,7 @@
   export let hasRightTransition: boolean = false;
   export let hasReducedLeftBorder: boolean = false;
   export let hasReducedRightBorder: boolean = false;
+  export let underlyingSignal: string | null = null;
 
   const dispatch = createEventDispatcher<{
     cyclechange: { signalIndex: number; cycleIndex: number; newChar: string };
@@ -43,9 +44,42 @@
     return 'unknown';
   }
 
+  // Get the underlying signal type for gap characters
+  function getUnderlyingType(): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'empty' | 'unknown' {
+    if (!underlyingSignal) return 'empty';
+    const char = underlyingSignal;
+    
+    if (char === '1' || char === 'h' || char === 'H' || char === 'P') return 'high';
+    if (char === '0' || char === 'l' || char === 'L' || char === 'N') return 'low';
+    if (char === 'x') return 'x';
+    if (char === 'z') return 'z';
+    if (['=', '2', '3', '4', '5'].includes(char)) return 'data';
+    if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(char)) return 'clock';
+    if (char === '') return 'empty';
+    return 'unknown';
+  }
+
   // Get the vertical position where the signal line is located (as percentage from top)
   export function getSignalLinePosition(): number {
     const type = getCycleType();
+    
+    // For gaps, use the underlying signal position
+    if (type === 'gap') {
+      const underlyingType = getUnderlyingType();
+      switch (underlyingType) {
+        case 'high':
+          return 20; // 20% from top
+        case 'low':
+          return 80; // 80% from top (20% from bottom)
+        case 'data':
+        case 'x':
+        case 'z':
+        case 'clock':
+          return 50; // Middle
+        default:
+          return 50; // Middle for unknown states
+      }
+    }
     
     switch (type) {
       case 'high':
@@ -57,12 +91,39 @@
       case 'z':
       case 'clock':
         return 50; // Middle
-      case 'gap':
       case 'empty':
       default:
         return 50; // Middle for unknown states
     }
   }
+
+  // For gap cycles, calculate CSS variables based on underlying signal
+  $: gapSignalLineY = (() => {
+    if (getCycleType() !== 'gap') {
+      return signalLinePixelPos;
+    }
+
+    const underlyingType = getUnderlyingType();
+    let yPercent: number;
+    switch (underlyingType) {
+      case 'high':
+        yPercent = 20; // 20% from top
+        break;
+      case 'low':
+        yPercent = 80; // 80% from top (20% from bottom)
+        break;
+      case 'data':
+      case 'x':
+      case 'z':
+      case 'clock':
+      default:
+        yPercent = 50; // Middle
+        break;
+    }
+    
+    const cycleHeight = 40;
+    return (yPercent / 100) * cycleHeight;
+  })();
 
   // Get the absolute pixel position for the signal line
   function getSignalLinePixelPosition(): number {
@@ -139,7 +200,7 @@
   class:reduced-right-border={hasReducedRightBorder}
   style="
     width: {cycleWidth}px;
-    --signal-line-y: {signalLinePixelPos}px;
+    --signal-line-y: {gapSignalLineY}px;
     --signal-line-width: {signalLineWidth}px;
     --signal-line-left: {signalLineLeft}px;
   "
@@ -207,7 +268,64 @@
         <div class="signal-line {cycle.effectiveChar === 'h' || cycle.effectiveChar === 'H' ? 'high-line' : 'low-line'}"></div>
       {/if}
     {:else if cycleType === 'gap'}
-      <div class="gap-lines">
+      <!-- Show the underlying signal that continues through the gap -->
+      {@const underlyingType = getUnderlyingType()}
+      
+      {#if underlyingType === 'high'}
+        <div class="signal-line high-line"></div>
+      {:else if underlyingType === 'low'}
+        <div class="signal-line low-line"></div>
+      {:else if underlyingType === 'x'}
+        <div class="x-pattern">
+          <div class="x-pattern-fill"></div>
+          <div class="x-top-border"></div>
+          <div class="x-bottom-border"></div>
+        </div>
+      {:else if underlyingType === 'z'}
+        <div class="z-line">
+          <div class="z-line-fill"></div>
+          <div class="z-top-border"></div>
+          <div class="z-bottom-border"></div>
+        </div>
+      {:else if underlyingType === 'data'}
+        <div class="data-shape">
+          <!-- Data shape continues through gap - no text shown in gap -->
+        </div>
+      {:else if underlyingType === 'clock'}
+        <!-- Clock signal underlying - show the actual clock waveform continuing -->
+        {#if underlyingSignal === 'p' || underlyingSignal === 'P'}
+          <!-- Positive clock - show the full clock pattern continuing -->
+          <div class="clock-shape positive-clock">
+            <div class="clock-rising-edge"></div>
+            <div class="clock-high-segment"></div>
+            <div class="clock-falling-edge"></div>
+            <div class="clock-low-segment"></div>
+            {#if underlyingSignal === 'P'}
+              <div class="working-edge-marker rising"></div>
+            {/if}
+          </div>
+        {:else if underlyingSignal === 'n' || underlyingSignal === 'N'}  
+          <!-- Negative clock - show the full clock pattern continuing -->
+          <div class="clock-shape negative-clock">
+            <div class="clock-falling-edge"></div>
+            <div class="clock-low-segment"></div>
+            <div class="clock-rising-edge"></div>
+            <div class="clock-high-segment"></div>
+            {#if underlyingSignal === 'N'}
+              <div class="working-edge-marker falling"></div>
+            {/if}
+          </div>
+        {:else}
+          <!-- Other clock states (h, H, l, L) - static high or low -->
+          <div class="signal-line {underlyingSignal === 'h' || underlyingSignal === 'H' ? 'high-line' : 'low-line'}"></div>
+        {/if}
+      {:else}
+        <!-- Default case - show a signal line at middle -->
+        <div class="signal-line"></div>
+      {/if}
+      
+      <!-- Overlay the gap indicators on top -->
+      <div class="gap-overlay">
         <div class="gap-line"></div>
         <div class="gap-line"></div>
       </div>
@@ -605,21 +723,36 @@
     left: -3px;
   }
 
-  /* Gap indicators */
-  .gap-lines {
+  /* Gap overlay - simple WaveDrom style timeskip */
+  .gap-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     display: flex;
-    flex-direction: column;
-    height: 60%;
     justify-content: center;
-    gap: 2px;
+    align-items: center;
+    pointer-events: none;
+    z-index: 10;
   }
 
   .gap-line {
     width: 2px;
-    height: 8px;
-    background-color: var(--color-signal-unknown);
-    margin: 0 auto;
-    transition: background-color 0.2s ease;
+    height: 80%;
+    background: var(--color-signal-high);
+    margin: 0 2px;
+    border-radius: 2px 2px 8px 8px;
+    transform: skewX(-15deg);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+  }
+  
+  .gap-line:first-child {
+    border-radius: 8px 2px 2px 8px;
+  }
+  
+  .gap-line:nth-child(2) {
+    border-radius: 2px 8px 8px 2px;
   }
 
   /* Empty cycle overlay */

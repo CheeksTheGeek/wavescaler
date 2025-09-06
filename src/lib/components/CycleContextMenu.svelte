@@ -36,6 +36,9 @@
       case 'setdata':
         dispatch('setvalue', { value: '=' });
         break;
+      case 'setgap':
+        dispatch('setvalue', { value: '|' });
+        break;
       case 'copy':
         dispatch('copy', {});
         break;
@@ -121,6 +124,10 @@
       <button class="menu-item value-item" on:click={() => handleAction('setdata')}>
         <span class="value-preview">=</span>
         Set to Data (=)
+      </button>
+      <button class="menu-item value-item" on:click={() => handleAction('setgap')}>
+        <span class="value-preview">|</span>
+        Set to Gap (|)
       </button>
     </div>
 

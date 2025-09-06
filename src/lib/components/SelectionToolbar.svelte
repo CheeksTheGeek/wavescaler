@@ -23,7 +23,7 @@
     customValue = '';
   }
 
-  const quickValues = ['0', '1', 'x', 'z', '='];
+  const quickValues = ['0', '1', 'x', 'z', '=', '|'];
 </script>
 
 {#if visible}

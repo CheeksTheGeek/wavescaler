@@ -16,6 +16,8 @@
     dataValue?: string;
   };
   export let hscale: number = 1;
+  export let fromUnderlyingSignal: string | null = null;
+  export let toUnderlyingSignal: string | null = null;
 
   const dispatch = createEventDispatcher<{
     transitionclick: { fromCycleIndex: number; toCycleIndex: number };
@@ -84,9 +86,21 @@
   
   // Calculate signal line positions for perfect alignment
   function getSignalLinePosition(cycle: typeof fromCycle, hasLeftTransition: boolean, hasRightTransition: boolean): { y: number; left: number; width: number; topY: number; bottomY: number } {
-    // Get visual representation for the cycle (same logic as SignalCycle)
-    function getCycleType(c: typeof cycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
+    // Get visual representation for the cycle, with gap handling for transitions
+    function getCycleType(c: typeof cycle, underlyingSignal: string | null): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
       const char = c.effectiveChar;
+      
+      // For gap cycles in transitions, use the underlying signal type for proper alignment
+      if (char === '|' && underlyingSignal) {
+        const underlyingChar = underlyingSignal;
+        if (underlyingChar === '1' || underlyingChar === 'h' || underlyingChar === 'H' || underlyingChar === 'P') return 'high';
+        if (underlyingChar === '0' || underlyingChar === 'l' || underlyingChar === 'L' || underlyingChar === 'N') return 'low';
+        if (underlyingChar === 'x') return 'x';
+        if (underlyingChar === 'z') return 'z';
+        if (['=', '2', '3', '4', '5'].includes(underlyingChar)) return 'data';
+        if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(underlyingChar)) return 'clock';
+        return 'unknown';
+      }
       
       if (char === '1' || char === 'h' || char === 'H' || char === 'P') return 'high';
       if (char === '0' || char === 'l' || char === 'L' || char === 'N') return 'low';
@@ -94,12 +108,13 @@
       if (char === 'z') return 'z';
       if (['=', '2', '3', '4', '5'].includes(char)) return 'data';
       if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(char)) return 'clock';
-      if (char === '|') return 'gap';
+      if (char === '|') return 'gap'; // Fallback for gaps without underlying signal info
       if (char === '') return 'empty';
       return 'unknown';
     }
 
-    const type = getCycleType(cycle);
+    const underlyingSignal = cycle === fromCycle ? fromUnderlyingSignal : toUnderlyingSignal;
+    const type = getCycleType(cycle, underlyingSignal);
     const cycleHeight = 40;
     
     // Get Y position (same logic as SignalCycle.getSignalLinePosition)
@@ -143,10 +158,22 @@
         bottomY = zCenterY + zHeight / 2;
         break;
       case 'clock':
-      default:
         yPercent = 50; // Middle
         topY = (yPercent / 100) * cycleHeight;
         bottomY = topY; // For clock signals, treat as line for now
+        break;
+      case 'gap':
+        // For gap cycles, we need to get the underlying signal type for proper transition alignment
+        // Since we don't have access to the underlying signal info here, we'll use middle positioning
+        // This should be improved by passing underlying signal information from the parent
+        yPercent = 50; // Middle
+        topY = (yPercent / 100) * cycleHeight;
+        bottomY = topY; // Treat as line for now
+        break;
+      default:
+        yPercent = 50; // Middle
+        topY = (yPercent / 100) * cycleHeight;
+        bottomY = topY; // For unknown signals, treat as line
         break;
     }
     
@@ -168,9 +195,23 @@
     };
   }
 
-  // Get visual representation for the cycle
-  function getCycleType(cycle: typeof fromCycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
+  // Get visual representation for the cycle with underlying signal support
+  function getCycleTypeWithUnderlying(cycle: typeof fromCycle): 'high' | 'low' | 'x' | 'z' | 'data' | 'clock' | 'gap' | 'empty' | 'unknown' {
     const char = cycle.effectiveChar;
+    
+    // For gap cycles, use the underlying signal type
+    if (char === '|') {
+      const underlyingSignal = cycle === fromCycle ? fromUnderlyingSignal : toUnderlyingSignal;
+      if (underlyingSignal) {
+        if (underlyingSignal === '1' || underlyingSignal === 'h' || underlyingSignal === 'H' || underlyingSignal === 'P') return 'high';
+        if (underlyingSignal === '0' || underlyingSignal === 'l' || underlyingSignal === 'L' || underlyingSignal === 'N') return 'low';
+        if (underlyingSignal === 'x') return 'x';
+        if (underlyingSignal === 'z') return 'z';
+        if (['=', '2', '3', '4', '5'].includes(underlyingSignal)) return 'data';
+        if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(underlyingSignal)) return 'clock';
+      }
+      return 'gap'; // Fallback
+    }
     
     if (char === '1' || char === 'h' || char === 'H' || char === 'P') return 'high';
     if (char === '0' || char === 'l' || char === 'L' || char === 'N') return 'low';
@@ -178,14 +219,13 @@
     if (char === 'z') return 'z';
     if (['=', '2', '3', '4', '5'].includes(char)) return 'data';
     if (['p', 'P', 'n', 'N', 'h', 'l', 'H', 'L'].includes(char)) return 'clock';
-    if (char === '|') return 'gap';
     if (char === '') return 'empty';
     return 'unknown';
   }
 
   function getTransitionType(): 'rising' | 'falling' | 'cross' | 'none' {
-    const fromType = getCycleType(fromCycle);
-    const toType = getCycleType(toCycle);
+    const fromType = getCycleTypeWithUnderlying(fromCycle);
+    const toType = getCycleTypeWithUnderlying(toCycle);
     
     // No transition if from/to empty
     if (fromType === 'empty' || toType === 'empty') {
@@ -217,8 +257,8 @@
   }
 
   function needsCleanCrossTransition(): boolean {
-    const fromType = getCycleType(fromCycle);
-    const toType = getCycleType(toCycle);
+    const fromType = getCycleTypeWithUnderlying(fromCycle);
+    const toType = getCycleTypeWithUnderlying(toCycle);
     
     // Need clean cross when transitioning to/from undefined (x) or data signals
     return (fromType === 'x' || toType === 'x' || 
@@ -227,8 +267,8 @@
   }
 
   function hasDataTransition(): boolean {
-    const fromType = getCycleType(fromCycle);
-    const toType = getCycleType(toCycle);
+    const fromType = getCycleTypeWithUnderlying(fromCycle);
+    const toType = getCycleTypeWithUnderlying(toCycle);
     
     return fromType === 'data' || toType === 'data';
   }
@@ -419,8 +459,8 @@
     {:else if transitionType === 'cross'}
       <div class="cross-transition">
         <!-- Fill triangles to match adjacent signal patterns -->
-        <div class="cross-fill-left {getCycleType(fromCycle)}"></div>
-        <div class="cross-fill-right {getCycleType(toCycle)}"></div>
+        <div class="cross-fill-left {getCycleTypeWithUnderlying(fromCycle)}"></div>
+        <div class="cross-fill-right {getCycleTypeWithUnderlying(toCycle)}"></div>
         
         <div class="cross-line cross-line-1"></div>
         <div class="cross-line cross-line-2"></div>
