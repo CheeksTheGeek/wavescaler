@@ -3,6 +3,7 @@
   import type { WaveJson, WaveSignal, WaveGroup } from '$lib/wavejson-types';
   import { parseWaveJson } from '$lib/wavejson-parser';
   import { historyStore, canUndo, canRedo } from '$lib/history-store';
+  import { createShareableUrl, copyToClipboard } from '$lib/url-sharing';
 
   // Subscribe to history store to force reactivity
   $: historyState = $historyStore;
@@ -179,6 +180,28 @@
     dispatch('toggleeditor', { visible: !editorVisible });
   }
 
+  async function handleExpandUrl() {
+    try {
+      const shareableUrl = createShareableUrl(waveJson);
+      const success = await copyToClipboard(shareableUrl);
+      
+      if (success) {
+        // Show a temporary success message
+        showUrlCopiedMessage = true;
+        setTimeout(() => {
+          showUrlCopiedMessage = false;
+        }, 2000);
+      } else {
+        alert('Failed to copy URL to clipboard. Please copy manually:\n\n' + shareableUrl);
+      }
+    } catch (error) {
+      console.error('Failed to create shareable URL:', error);
+      alert('Failed to create shareable URL');
+    }
+  }
+
+  let showUrlCopiedMessage = false;
+
 </script>
 
 <svelte:window on:click={handleClickOutside} />
@@ -300,6 +323,14 @@
         </div>
       {/if}
     </div>
+    <button class="toolbar-button secondary" on:click={handleExpandUrl}>
+      <svg width="16" height="16" viewBox="0 0 16 16">
+        <path d="M10 2 L14 2 L14 6 M9 7 L13 3" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        <path d="M2 10 L2 14 L6 14 M7 9 L3 13" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        <rect x="6" y="6" width="4" height="4" stroke="currentColor" stroke-width="1.5" fill="none" rx="1"/>
+      </svg>
+      {showUrlCopiedMessage ? 'URL Copied!' : 'Expand URL'}
+    </button>
   </div>
 
   {#if showTextImport}

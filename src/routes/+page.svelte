@@ -12,6 +12,7 @@
 	import { initializeCommandPalette, commandPaletteStore } from '$lib/command-palette';
 	import type { CommandContext } from '$lib/command-palette/types';
 	import { createHistoryActions, canUndo, canRedo } from '$lib/history-store';
+	import { loadWaveJsonFromUrl, clearUrlWaveform } from '$lib/url-sharing';
 	import { onMount } from 'svelte';
 
 	// Sample WaveJSON data for demonstration
@@ -43,7 +44,15 @@
 		// Initialize command palette
 		initializeCommandPalette();
 
-		// Initialize history with initial state
+		// Check if there's waveform data in the URL
+		const urlWaveJson = loadWaveJsonFromUrl();
+		if (urlWaveJson) {
+			waveformData = urlWaveJson;
+			// Clear the URL parameter after loading to keep URL clean
+			clearUrlWaveform();
+		}
+
+		// Initialize history with the final state (either from URL or default)
 		history.initialize(waveformData);
 	});
 
