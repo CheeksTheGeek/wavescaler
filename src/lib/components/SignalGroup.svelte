@@ -11,7 +11,7 @@
   export let maxCycles: number;
   export let hscale: number = 1;
   export let level: number = 0;
-  export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'unknown';
+  export let getItemType: (item: SignalItem) => 'signal' | 'group' | 'spacer' | 'node-only' | 'unknown';
   export let isCellSelected: (signalIndex: number, cycleIndex: number) => boolean = () => false;
   export let signalIndexMap: Map<any, number>;
   export let treePath: number[] = [];
@@ -658,6 +658,14 @@
                 <div class="spacer-vertical-line"></div>
               </div>
             </div>
+          {:else if itemType === 'node-only'}
+            <!-- Invisible signal for arrow anchor points only -->
+            <div class="group-node-only">
+              <div class="node-only-name"></div>
+              <div class="node-only-wave-area" style="width: {maxCycles * 40 * hscale}px;">
+                <!-- Invisible but maintains height for proper spacing -->
+              </div>
+            </div>
           {:else if itemType === 'unknown'}
             <div class="group-unknown">
               Unknown item type in group
@@ -992,6 +1000,35 @@
       width: 1px;
       height: 100%;
       background: transparent;
+    }
+
+    .group-node-only {
+      height: var(--lane-height);
+      display: flex;
+      margin: 2px 0;
+      opacity: 0.3; /* Make it semi-transparent to indicate it's invisible */
+      border-bottom: 1px solid var(--color-border-primary);
+    }
+
+    .group-node-only .node-only-name {
+      width: var(--name-width);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 11px;
+      color: var(--color-text-tertiary);
+      font-style: italic;
+    }
+
+    .group-node-only .node-only-name::after {
+      content: "nodes only";
+    }
+
+    .group-node-only .node-only-wave-area {
+      flex: 1;
+      height: 100%;
+      position: relative;
+      /* Invisible but maintains space for node positioning */
     }
 
     .group-unknown {

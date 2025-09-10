@@ -23,6 +23,10 @@
       rightclick: { signalIndex: number; cycleIndex: number; x: number; y: number; currentValue: string; isImplicit: boolean; isExplicit: boolean };
       transitionclick: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number };
       transitiondrag: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; deltaX: number; dragMode: 'default' | 'extend' };
+      annotationstart: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; startX: number; startY: number };
+      annotationupdate: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; currentX: number; currentY: number; isSticky: boolean };
+      annotationend: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; endX: number; endY: number; isSticky: boolean };
+      noderightclick: { signalIndex: number; cycleIndex: number; nodeId: string; x: number; y: number };
       signalreorder: { fromIndex: number; toIndex: number };
       dragstart: { path: number[]; itemType: 'signal'; event: DragEvent };
       drop: { targetPath: number[]; position: 'before' | 'after'; event: DragEvent };
@@ -363,6 +367,22 @@
         fromCycleIndex: event.detail.fromCycleIndex,
         toCycleIndex: event.detail.toCycleIndex
       });
+    }
+
+    function handleAnnotationStart(event: CustomEvent<{ signalIndex: number; fromCycleIndex: number; toCycleIndex: number; startX: number; startY: number }>) {
+      dispatch('annotationstart', event.detail);
+    }
+
+    function handleAnnotationUpdate(event: CustomEvent<{ signalIndex: number; fromCycleIndex: number; toCycleIndex: number; currentX: number; currentY: number; isSticky: boolean }>) {
+      dispatch('annotationupdate', event.detail);
+    }
+
+    function handleAnnotationEnd(event: CustomEvent<{ signalIndex: number; fromCycleIndex: number; toCycleIndex: number; endX: number; endY: number; isSticky: boolean }>) {
+      dispatch('annotationend', event.detail);
+    }
+
+    function handleNodeRightClick(event: CustomEvent<{ signalIndex: number; cycleIndex: number; nodeId: string; x: number; y: number }>) {
+      dispatch('noderightclick', event.detail);
     }
 
     function handleTransitionDrag(event: CustomEvent<{ fromCycleIndex: number; toCycleIndex: number; deltaX: number; dragMode: 'default' | 'extend' }>) {
@@ -733,10 +753,15 @@
             fromCycle={cycle}
             toCycle={nextCycle}
             {hscale}
+            {signalIndex}
             {fromUnderlyingSignal}
             {toUnderlyingSignal}
             on:transitionclick={handleTransitionClick}
             on:transitiondrag={handleTransitionDrag}
+            on:annotationstart={handleAnnotationStart}
+            on:annotationupdate={handleAnnotationUpdate}
+            on:annotationend={handleAnnotationEnd}
+            on:noderightclick={handleNodeRightClick}
           />
           </div>
         {/if}

@@ -81,9 +81,23 @@
       event.preventDefault();
     }
   }
+
+  function handleWheel(event: WheelEvent) {
+    // Close menu on scaling (Ctrl/Cmd + wheel) or horizontal scrolling (Shift + wheel)
+    if (visible && (event.metaKey || event.ctrlKey || event.shiftKey)) {
+      dispatch('close', {});
+    }
+  }
+
+  function handleScroll(event: Event) {
+    // Close menu on any scrolling
+    if (visible) {
+      dispatch('close', {});
+    }
+  }
 </script>
 
-<svelte:window on:click={handleClickOutside} on:mousedown={handleClickOutside} on:contextmenu={handleContextMenu} />
+<svelte:window on:click={handleClickOutside} on:mousedown={handleClickOutside} on:contextmenu={handleContextMenu} on:wheel={handleWheel} on:scroll={handleScroll} />
 
 {#if visible}
   <div 

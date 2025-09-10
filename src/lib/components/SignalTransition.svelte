@@ -16,12 +16,17 @@
     dataValue?: string;
   };
   export let hscale: number = 1;
+  export let signalIndex: number;
   export let fromUnderlyingSignal: string | null = null;
   export let toUnderlyingSignal: string | null = null;
 
   const dispatch = createEventDispatcher<{
     transitionclick: { fromCycleIndex: number; toCycleIndex: number };
     transitiondrag: { fromCycleIndex: number; toCycleIndex: number; deltaX: number; dragMode: 'default' | 'extend' };
+    annotationstart: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; startX: number; startY: number };
+    annotationupdate: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; currentX: number; currentY: number; isSticky: boolean };
+    annotationend: { signalIndex: number; fromCycleIndex: number; toCycleIndex: number; endX: number; endY: number; isSticky: boolean };
+    noderightclick: { signalIndex: number; cycleIndex: number; nodeId: string; x: number; y: number };
   }>();
 
   // Drag state
@@ -32,6 +37,14 @@
   let dragDelta = 0;
   let currentMouseX = 0;
   let dragRailContainer: HTMLElement;
+  
+  // Annotation drawing state
+  let isDrawingAnnotation = false;
+  let annotationStartX = 0;
+  let annotationStartY = 0;
+  let annotationCurrentX = 0;
+  let annotationCurrentY = 0;
+  let isAnnotationSticky = false;
   
   // Global drag tracking key based on transition position
   const dragKey = `transition_${fromCycle.cycleIndex}_${toCycle.cycleIndex}`;
@@ -296,22 +309,37 @@
     event.preventDefault();
     event.stopPropagation();
     
-    isDragging = true;
-    dragStartX = event.clientX;
-    currentMouseX = event.clientX;
-    dragMode = event.metaKey || event.ctrlKey ? 'extend' : 'default';
-    dragDelta = 0;
+    // Check if this is a transition move operation (Ctrl/Cmd held)
+    if (event.metaKey || event.ctrlKey) {
+      // Start transition dragging mode
+      isDragging = true;
+      dragStartX = event.clientX;
+      currentMouseX = event.clientX;
+      dragMode = event.shiftKey ? 'extend' : 'default';
+      dragDelta = 0;
 
-    // Mark this transition as being dragged globally
-    if (typeof window !== 'undefined') {
-      (window as any).transitionDragActive = dragKey;
+      // Mark this transition as being dragged globally
+      if (typeof window !== 'undefined') {
+        (window as any).transitionDragActive = dragKey;
+      }
+
+      // Add global mouse event listeners
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'ew-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      // Prepare for potential annotation drawing, but don't start yet
+      // Store initial position and add listeners to detect drag vs click
+      annotationStartX = event.clientX;
+      annotationStartY = event.clientY;
+      isAnnotationSticky = event.shiftKey;
+      
+      // Add global mouse event listeners to detect movement
+      document.addEventListener('mousemove', handlePotentialAnnotationMove);
+      document.addEventListener('mouseup', handleAnnotationMouseUp);
+      document.body.style.userSelect = 'none';
     }
-
-    // Add global mouse event listeners
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
   }
 
   function handleMouseMove(event: MouseEvent) {
@@ -333,32 +361,196 @@
   }
 
   function handleMouseUp(event: MouseEvent) {
-    // Apply the drag change only on drop if there was a valid movement
-    const finalDelta = dragDelta;
-    const finalNearestSnap = findNearestSnapPosition(currentMouseX - dragStartX);
+    if (isDragging) {
+      // Apply the drag change only on drop if there was a valid movement
+      const finalDelta = dragDelta;
+      const finalNearestSnap = findNearestSnapPosition(currentMouseX - dragStartX);
+      
+      if (finalNearestSnap.isValid && Math.abs(finalDelta) >= 1) {
+        dispatch('transitiondrag', {
+          fromCycleIndex: fromCycle.cycleIndex,
+          toCycleIndex: toCycle.cycleIndex,
+          deltaX: finalDelta,
+          dragMode
+        });
+      }
+      
+      // Reset drag state
+      isDragging = false;
+      isHovering = false;
+      dragDelta = 0;
+      currentMouseX = 0;
+      
+      // Clear global drag state
+      if (typeof window !== 'undefined') {
+        delete (window as any).transitionDragActive;
+      }
+      
+      // Remove global mouse event listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    } else if (isDrawingAnnotation) {
+      endAnnotationDrawing(event);
+    }
+  }
+
+  function handlePotentialAnnotationMove(event: MouseEvent) {
+    const deltaX = Math.abs(event.clientX - annotationStartX);
+    const deltaY = Math.abs(event.clientY - annotationStartY);
+    const threshold = 3; // Minimum pixels to start annotation drawing
     
-    if (finalNearestSnap.isValid && Math.abs(finalDelta) >= 1) {
-      dispatch('transitiondrag', {
-        fromCycleIndex: fromCycle.cycleIndex,
-        toCycleIndex: toCycle.cycleIndex,
-        deltaX: finalDelta,
-        dragMode
-      });
+    if (deltaX > threshold || deltaY > threshold) {
+      // User is dragging, start annotation drawing
+      document.removeEventListener('mousemove', handlePotentialAnnotationMove);
+      document.removeEventListener('mouseup', handleAnnotationMouseUp);
+      startAnnotationDrawing(event);
+    }
+  }
+
+  function handleAnnotationMouseUp(event: MouseEvent) {
+    // User released mouse without dragging - this is just a click, do nothing
+    document.removeEventListener('mousemove', handlePotentialAnnotationMove);
+    document.removeEventListener('mouseup', handleAnnotationMouseUp);
+    document.body.style.userSelect = '';
+  }
+
+  function handleRightClick(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Generate node ID for this transition
+    const chars = 'abcdefghijklmnopqrstuvwxyz';
+    const nodeId = `${chars[signalIndex] || 'a'}${fromCycle.cycleIndex}`;
+    
+    // Dispatch event to show node context menu
+    dispatch('noderightclick', {
+      signalIndex,
+      cycleIndex: fromCycle.cycleIndex,
+      nodeId,
+      x: event.clientX,
+      y: event.clientY
+    });
+  }
+
+  function startAnnotationDrawing(event: MouseEvent) {
+    isDrawingAnnotation = true;
+    // isAnnotationSticky was already set in handleMouseDown
+    
+    // Get the position relative to the diagram container, accounting for scaling
+    const diagramContainer = document.querySelector('.diagram-content');
+    if (diagramContainer) {
+      const containerRect = diagramContainer.getBoundingClientRect();
+      
+      // Find the transition element by looking for the one with our data attributes
+      const transitionElement = document.querySelector(`[data-from-cycle="${fromCycle.cycleIndex}"][data-to-cycle="${toCycle.cycleIndex}"]`) as HTMLElement;
+      
+      if (transitionElement) {
+        const transitionRect = transitionElement.getBoundingClientRect();
+        
+        // Calculate the center of the transition as the starting point
+        const centerX = transitionRect.left + transitionRect.width / 2;
+        const centerY = transitionRect.top + transitionRect.height / 2;
+        
+        // Convert to diagram-relative coordinates
+        annotationStartX = centerX - containerRect.left + diagramContainer.scrollLeft;
+        annotationStartY = centerY - containerRect.top + diagramContainer.scrollTop;
+      } else {
+        // Fallback: convert the stored viewport coordinates to diagram coordinates
+        const storedViewportX = annotationStartX;
+        const storedViewportY = annotationStartY;
+        annotationStartX = storedViewportX - containerRect.left + diagramContainer.scrollLeft;
+        annotationStartY = storedViewportY - containerRect.top + diagramContainer.scrollTop;
+      }
+      
+      // Set current position to the current mouse position
+      annotationCurrentX = event.clientX - containerRect.left + diagramContainer.scrollLeft;
+      annotationCurrentY = event.clientY - containerRect.top + diagramContainer.scrollTop;
+      
+    } else {
+      // Fallback to viewport coordinates
+      annotationCurrentX = event.clientX;
+      annotationCurrentY = event.clientY;
     }
     
-    // Reset drag state
-    isDragging = false;
-    isHovering = false;
-    dragDelta = 0;
-    currentMouseX = 0;
+    // Add global mouse event listeners for annotation drawing
+    document.addEventListener('mousemove', handleAnnotationMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'crosshair';
+    document.body.style.userSelect = 'none';
     
-    // Clear global drag state
-    if (typeof window !== 'undefined') {
-      delete (window as any).transitionDragActive;
+    dispatch('annotationstart', {
+      signalIndex,
+      fromCycleIndex: fromCycle.cycleIndex,
+      toCycleIndex: toCycle.cycleIndex,
+      startX: annotationStartX,
+      startY: annotationStartY
+    });
+  }
+  
+  function handleAnnotationMouseMove(event: MouseEvent) {
+    if (!isDrawingAnnotation) return;
+    
+    // Get the position relative to the diagram container
+    const diagramContainer = document.querySelector('.diagram-content');
+    if (diagramContainer) {
+      const containerRect = diagramContainer.getBoundingClientRect();
+      annotationCurrentX = event.clientX - containerRect.left + diagramContainer.scrollLeft;
+      annotationCurrentY = event.clientY - containerRect.top + diagramContainer.scrollTop;
+    } else {
+      // Fallback to viewport coordinates
+      annotationCurrentX = event.clientX;
+      annotationCurrentY = event.clientY;
     }
+    
+    isAnnotationSticky = event.shiftKey;
+    
+    dispatch('annotationupdate', {
+      signalIndex,
+      fromCycleIndex: fromCycle.cycleIndex,
+      toCycleIndex: toCycle.cycleIndex,
+      currentX: annotationCurrentX,
+      currentY: annotationCurrentY,
+      isSticky: isAnnotationSticky
+    });
+  }
+  
+  function endAnnotationDrawing(event: MouseEvent) {
+    if (!isDrawingAnnotation) return;
+    
+    // Get the final position relative to the diagram container
+    const diagramContainer = document.querySelector('.diagram-content');
+    let endX, endY;
+    if (diagramContainer) {
+      const containerRect = diagramContainer.getBoundingClientRect();
+      endX = event.clientX - containerRect.left + diagramContainer.scrollLeft;
+      endY = event.clientY - containerRect.top + diagramContainer.scrollTop;
+    } else {
+      // Fallback to viewport coordinates
+      endX = event.clientX;
+      endY = event.clientY;
+    }
+    
+    dispatch('annotationend', {
+      signalIndex,
+      fromCycleIndex: fromCycle.cycleIndex,
+      toCycleIndex: toCycle.cycleIndex,
+      endX: endX,
+      endY: endY,
+      isSticky: isAnnotationSticky
+    });
+    
+    // Reset annotation state
+    isDrawingAnnotation = false;
+    isAnnotationSticky = false;
+    annotationStartX = 0;
+    annotationStartY = 0;
+    annotationCurrentX = 0;
+    annotationCurrentY = 0;
     
     // Remove global mouse event listeners
-    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mousemove', handleAnnotationMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
@@ -420,6 +612,8 @@
     class:data-transition={isDataTransition}
     class:hovering={isHovering}
     class:dragging={isDragging}
+    data-from-cycle={fromCycle.cycleIndex}
+    data-to-cycle={toCycle.cycleIndex}
     style="
       width: {transitionWidth}px;
       --from-y: {fromY}px;
@@ -444,10 +638,11 @@
     on:mousedown={handleMouseDown}
     on:mouseenter={handleMouseEnter}
     on:mouseleave={handleMouseLeave}
+    on:contextmenu={handleRightClick}
     on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick(new MouseEvent('click')); } }}
     role="button"
     tabindex="0"
-    title="Transition: {fromCycle.effectiveChar} → {toCycle.effectiveChar} (drag to modify timing)"
+    title="Transition: {fromCycle.effectiveChar} → {toCycle.effectiveChar} (drag to modify timing, right-click to name)"
   >
     <!-- Rising transition -->
     {#if transitionType === 'rising'}
